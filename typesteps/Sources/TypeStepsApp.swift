@@ -1,10 +1,13 @@
 import SwiftUI
+import UserNotifications
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         KeystrokeListener.shared.startListening()
-        // Ensure the app icon is visible in Mission Control/App Switcher
         NSApp.setActivationPolicy(.regular)
+        
+        // Request notification permissions
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 }
 
@@ -12,6 +15,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 struct TypeStepsApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var storage = StorageManager.shared
+    @StateObject private var listener = KeystrokeListener.shared
+    
     @AppStorage("app_theme") private var appTheme = 0
     @Environment(\.openWindow) var openWindow
     
@@ -20,6 +25,11 @@ struct TypeStepsApp: App {
             Text("Today: \(storage.getCount())")
             
             Divider()
+            
+            Button(listener.isPaused ? "Resume Tracking" : "Pause Tracking") {
+                listener.isPaused.toggle()
+            }
+            .keyboardShortcut("p", modifiers: [.command, .shift])
             
             Button("Open Dashboard") {
                 NSApp.activate(ignoringOtherApps: true)
@@ -35,7 +45,7 @@ struct TypeStepsApp: App {
             .keyboardShortcut("q")
         } label: {
             HStack {
-                Image(systemName: "keyboard")
+                Image(systemName: listener.isPaused ? "keyboard.badge.ellipsis" : "keyboard")
                 Text("\(storage.getCount())")
             }
         }
@@ -45,17 +55,13 @@ struct TypeStepsApp: App {
                 .preferredColorScheme(appTheme == 0 ? nil : (appTheme == 1 ? .light : .dark))
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 400, height: 600)
+        .defaultSize(width: 500, height: 750)
         
-        // Customizing the Menu Bar Menu
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("About TypeSteps") {
                     showCustomAbout()
                 }
-            }
-            CommandGroup(replacing: .appSettings) {
-                // Settings removed as requested
             }
         }
     }
@@ -64,19 +70,14 @@ struct TypeStepsApp: App {
         let alert = NSAlert()
         alert.messageText = "About TypeSteps"
         alert.informativeText = """
-        Version 1.0.0
+        A minimalist macOS app that passively tracks your daily typing activity and shows insights across days, weeks, and months.
         
-        A minimal keyboard activity tracker for macOS.
-        Built with ❤️ by falakgala.dev
-        
-        Performance: <1% CPU Usage
-        Size: ~5MB
+        Version 1.1.0
+        Built by falakgala.dev
         """
         alert.addButton(withTitle: "Visit Website")
         alert.addButton(withTitle: "OK")
-        
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
+        if alert.runModal() == .alertFirstButtonReturn {
             if let url = URL(string: "https://falakgala.dev") {
                 NSWorkspace.shared.open(url)
             }

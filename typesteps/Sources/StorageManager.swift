@@ -1,10 +1,12 @@
 import SwiftUI
 import Combine
+import UserNotifications
 
 class StorageManager: ObservableObject {
     static let shared = StorageManager()
     private let statsKey = "typing_stats_daily"
     private let hourlyKey = "typing_stats_hourly"
+    private let notifiedKey = "typing_notified_milestones"
     
     @Published var dailyStats: [String: Int] = [:]
     @Published var hourlyStats: [String: Int] = [:]
@@ -41,7 +43,37 @@ class StorageManager: ObservableObject {
         dailyStats[dayString] = (dailyStats[dayString] ?? 0) + 1
         hourlyStats[hourString] = (hourlyStats[hourString] ?? 0) + 1
         
+        checkMilestones(count: dailyStats[dayString] ?? 0, day: dayString)
         saveStats()
+    }
+    
+    private func checkMilestones(count: Int, day: String) {
+        let goal = UserDefaults.standard.integer(forKey: "daily_goal")
+        guard goal > 0 else { return }
+        
+        let milestones = [0.5, 0.8, 1.0]
+        var notified = UserDefaults.standard.dictionary(forKey: notifiedKey) as? [String: [Double]] ?? [:]
+        var dayNotified = notified[day] ?? []
+        
+        for m in milestones {
+            if Double(count) >= Double(goal) * m && !dayNotified.contains(m) {
+                sendNotification(milestone: Int(m * 100))
+                dayNotified.append(m)
+            }
+        }
+        
+        notified[day] = dayNotified
+        UserDefaults.standard.set(notified, forKey: notifiedKey)
+    }
+    
+    private func sendNotification(milestone: Int) {
+        let content = UNMutableNotificationContent()
+        content.title = "TypeSteps Milestone! 🚀"
+        content.body = "You've reached \(milestone)% of your daily typing goal."
+        content.sound = .default
+        
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
     }
     
     func getCount(for date: Date = Date()) -> Int {
@@ -80,7 +112,6 @@ class StorageManager: ObservableObject {
     // MARK: - Chart Data
     
     func getTodayHourly() -> [(label: String, count: Int)] {
-        let calendar = Calendar.current
         let today = dateFormatter.string(from: Date())
         var result: [(label: String, count: Int)] = []
         
@@ -107,15 +138,25 @@ class StorageManager: ObservableObject {
         return result
     }
     
-    func getLastThirtyDays() -> [(label: String, count: Int)] {
+    func getLastSixMonths() -> [(label: String, count: Int)] {
         let calendar = Calendar.current
         var result: [(label: String, count: Int)] = []
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateFormat = "MMM"
         
-        for i in (0..<30).reversed() {
-            if let date = calendar.date(byAdding: .day, value: -i, to: Date()) {
-                let key = dateFormatter.string(from: date)
-                let day = calendar.component(.day, from: date)
-                result.append((label: "\(day)", count: dailyStats[key] ?? 0))
+        for i in (0..<6).reversed() {
+            if let date = calendar.date(byAdding: .month, value: -i, to: Date()) {
+                let month = calendar.component(.month, from: date)
+                let year = calendar.component(.year, from: date)
+                
+                let monthTotal = dailyStats.reduce(0) { total, entry in
+                    guard let d = dateFormatter.date(from: entry.key) else { return total }
+                    let entryMonth = calendar.component(.month, from: d)
+                    let entryYear = calendar.component(.year, from: d)
+                    return (entryMonth == month && entryYear == year) ? total + entry.value : total
+                }
+                
+                result.append((label: displayFormatter.string(from: date), count: monthTotal))
             }
         }
         return result

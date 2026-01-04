@@ -13,6 +13,8 @@ struct DashboardView: View {
     @AppStorage("app_theme") private var appTheme = 0 
     @AppStorage("daily_goal") private var dailyGoal = 5000 
     
+    @State private var rawSelectedDate: String?
+    
     private var bgMain: Color {
         appTheme == 1 ? Color.white : Color(red: 9/255, green: 9/255, blue: 11/255)
     }
@@ -34,7 +36,7 @@ struct DashboardView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 40) {
-                        if geo.size.width > 600 {
+                        if geo.size.width > 700 {
                             HStack(alignment: .top, spacing: 48) {
                                 leftColumn
                                 rightColumn
@@ -46,7 +48,7 @@ struct DashboardView: View {
                             }
                         }
                     }
-                    .padding(geo.size.width > 600 ? 40 : 24)
+                    .padding(geo.size.width > 700 ? 40 : 24)
                 }
             }
         }
@@ -101,41 +103,66 @@ struct DashboardView: View {
     
     private var leftColumn: some View {
         VStack(alignment: .leading, spacing: 32) {
-            HStack(alignment: .bottom, spacing: 24) {
-                VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .lastTextBaseline) {
                     Text(currentLabel.uppercased())
                         .font(.system(size: 10, weight: .medium))
                         .kerning(1.5)
                         .foregroundStyle(.secondary)
                     
-                    Text("\(currentMainCount)")
-                        .font(.system(size: 56, weight: .bold))
+                    Spacer()
+                    
+                    Text(dateSubtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
                 }
                 
-                if selectedTab == 0 {
-                    Spacer()
-                    goalProgressCircle
+                HStack(alignment: .bottom) {
+                    Text("\(currentMainCount)")
+                        .font(.system(size: 56, weight: .bold))
+                    
+                    if selectedTab == 0 {
+                        Spacer()
+                        goalProgressCircle
+                    }
                 }
             }
             
             VStack(alignment: .leading, spacing: 16) {
-                Text("ACTIVITY TREND")
-                    .font(.system(size: 10, weight: .medium))
-                    .kerning(1.5)
-                    .foregroundStyle(.secondary)
-                
-                Chart(chartData) { point in
-                    if selectedTab == 0 {
-                        AreaMark(x: .value("T", point.label), y: .value("C", point.count))
-                            .interpolationMethod(.monotone)
-                            .foregroundStyle(accent.opacity(0.1).gradient)
-                        LineMark(x: .value("T", point.label), y: .value("C", point.count))
-                            .interpolationMethod(.monotone)
+                HStack {
+                    Text("ACTIVITY TREND")
+                        .font(.system(size: 10, weight: .medium))
+                        .kerning(1.5)
+                        .foregroundStyle(.secondary)
+                    
+                    if let selectedValue = selectedPointValue {
+                        Spacer()
+                        Text("\(selectedValue) letters")
+                            .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(accent)
-                    } else {
-                        BarMark(x: .value("L", point.label), y: .value("C", point.count))
-                            .foregroundStyle(point.label == currentDayLabel ? accent : Color.secondary.opacity(0.2))
-                            .cornerRadius(2)
+                    }
+                }
+                
+                Chart {
+                    ForEach(chartData) { point in
+                        if selectedTab == 0 {
+                            AreaMark(x: .value("T", point.label), y: .value("C", point.count))
+                                .interpolationMethod(.monotone)
+                                .foregroundStyle(accent.opacity(0.1).gradient)
+                            LineMark(x: .value("T", point.label), y: .value("C", point.count))
+                                .interpolationMethod(.monotone)
+                                .foregroundStyle(accent)
+                        } else {
+                            BarMark(x: .value("L", point.label), y: .value("C", point.count))
+                                .foregroundStyle(point.label == currentActiveLabel ? accent : Color.secondary.opacity(0.2))
+                                .cornerRadius(2)
+                        }
+                    }
+                    
+                    if let rawSelectedDate {
+                        RuleMark(x: .value("Selected", rawSelectedDate))
+                            .foregroundStyle(Color.secondary.opacity(0.3))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
                     }
                 }
                 .frame(height: 200)
@@ -146,10 +173,22 @@ struct DashboardView: View {
                     }
                 }
                 .chartXAxis {
-                    AxisMarks { AxisValueLabel().font(.system(size: 9)) }
+                    if selectedTab == 0 {
+                        AxisMarks(values: .stride(by: 4)) { value in
+                            AxisValueLabel().font(.system(size: 9))
+                        }
+                    } else {
+                        AxisMarks { AxisValueLabel().font(.system(size: 9)) }
+                    }
                 }
+                .chartXSelection(value: $rawSelectedDate)
             }
         }
+    }
+    
+    private var selectedPointValue: Int? {
+        guard let rawSelectedDate else { return nil }
+        return chartData.first(where: { $0.label == rawSelectedDate })?.count
     }
     
     private var goalProgressCircle: some View {
@@ -195,7 +234,7 @@ struct DashboardView: View {
                 .padding(.top, -12)
             }
             
-            Spacer()
+            heatmapSection
             
             Button(action: shareStats) {
                 HStack {
@@ -211,6 +250,54 @@ struct DashboardView: View {
             .buttonStyle(.plain)
         }
         .frame(maxWidth: 400)
+    }
+    
+    private var heatmapSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("2026 CONSISTENCY")
+                    .font(.system(size: 10, weight: .medium))
+                    .kerning(1.5)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(storage.getTotalAllTime()) Total")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+            }
+            
+            let daysIn2026 = 365
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHGrid(rows: Array(repeating: GridItem(.fixed(10), spacing: 3), count: 7), spacing: 3) {
+                    ForEach(0..<daysIn2026, id: \.self) { i in
+                        heatmapCell(dayOfYear: i)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            .frame(height: 95)
+        }
+    }
+    
+    private func heatmapCell(dayOfYear: Int) -> some View {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2026
+        components.day = dayOfYear + 1
+        let date = calendar.date(from: components)!
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let key = formatter.string(from: date)
+        let count = storage.dailyStats[key] ?? 0
+        let intensity = min(1.0, Double(count) / Double(max(1, dailyGoal)))
+        
+        let isFuture = date > Date()
+        
+        return RoundedRectangle(cornerRadius: 1.5)
+            .fill(count > 0 ? accent.opacity(0.2 + intensity * 0.8) : (isFuture ? Color.clear : borderColor.opacity(0.3)))
+            .frame(width: 10, height: 10)
+            .help("\(key): \(count) letters")
     }
     
     private var currentMainCount: Int {
@@ -231,9 +318,37 @@ struct DashboardView: View {
         }
     }
     
-    private var currentDayLabel: String {
+    private var dateSubtitle: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "E"
+        let calendar = Calendar.current
+        let now = Date()
+        
+        switch selectedTab {
+        case 0:
+            formatter.dateFormat = "MMM d, yyyy"
+            return formatter.string(from: now)
+        case 1:
+            let components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+            let startOfWeek = calendar.date(from: components)!
+            formatter.dateFormat = "MMM d"
+            let startStr = formatter.string(from: startOfWeek)
+            let endStr = formatter.string(from: now)
+            return "\(startStr) - \(endStr)"
+        case 2:
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: now)
+        default:
+            return ""
+        }
+    }
+    
+    private var currentActiveLabel: String {
+        let formatter = DateFormatter()
+        if selectedTab == 1 {
+            formatter.dateFormat = "E"
+        } else {
+            formatter.dateFormat = "MMM"
+        }
         return formatter.string(from: Date())
     }
     
@@ -242,7 +357,7 @@ struct DashboardView: View {
         switch selectedTab {
         case 0: rawData = storage.getTodayHourly()
         case 1: rawData = storage.getLastSevenDays()
-        case 2: rawData = storage.getLastThirtyDays()
+        case 2: rawData = storage.getLastSixMonths()
         default: rawData = []
         }
         return rawData.map { ActivityPoint(label: $0.label, count: $0.count) }
