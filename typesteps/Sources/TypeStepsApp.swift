@@ -4,7 +4,9 @@ import UserNotifications
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         KeystrokeListener.shared.startListening()
-        NSApp.setActivationPolicy(.regular)
+        
+        // This keeps the app running as a background utility (no Dock icon)
+        NSApp.setActivationPolicy(.accessory)
         
         // Request notification permissions
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
