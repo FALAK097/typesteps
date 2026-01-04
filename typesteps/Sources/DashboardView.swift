@@ -15,6 +15,9 @@ struct DashboardView: View {
     
     @State private var rawSelectedDate: String?
     
+    // Explicit Indigo - using tint for all controls
+    private let accent = Color(red: 99/255, green: 102/255, blue: 241/255) 
+    
     private var bgMain: Color {
         appTheme == 1 ? Color.white : Color(red: 9/255, green: 9/255, blue: 11/255)
     }
@@ -26,8 +29,6 @@ struct DashboardView: View {
     private var borderColor: Color {
         appTheme == 1 ? Color(red: 228/255, green: 228/255, blue: 231/255) : Color(red: 39/255, green: 39/255, blue: 42/255)
     }
-    
-    private let accent = Color(red: 99/255, green: 102/255, blue: 241/255) 
     
     var body: some View {
         GeometryReader { geo in
@@ -53,6 +54,7 @@ struct DashboardView: View {
             }
         }
         .background(bgMain)
+        .tint(accent) // Applies to all buttons/pickers inside
     }
     
     private var header: some View {
@@ -63,6 +65,7 @@ struct DashboardView: View {
                 
                 Spacer()
                 
+                // Theme Toggle
                 Button {
                     appTheme = (appTheme + 1) % 3
                 } label: {
@@ -84,6 +87,7 @@ struct DashboardView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 160)
+                .tint(accent)
                 .scaleEffect(0.9)
             }
             .padding(.horizontal, 24)
@@ -120,6 +124,7 @@ struct DashboardView: View {
                 HStack(alignment: .bottom) {
                     Text("\(currentMainCount)")
                         .font(.system(size: 56, weight: .bold))
+                        .contentTransition(.numericText())
                     
                     if selectedTab == 0 {
                         Spacer()
@@ -154,7 +159,7 @@ struct DashboardView: View {
                                 .foregroundStyle(accent)
                         } else {
                             BarMark(x: .value("L", point.label), y: .value("C", point.count))
-                                .foregroundStyle(point.label == currentActiveLabel ? accent : Color.secondary.opacity(0.2))
+                                .foregroundStyle(accent.gradient)
                                 .cornerRadius(2)
                         }
                     }
@@ -173,12 +178,17 @@ struct DashboardView: View {
                     }
                 }
                 .chartXAxis {
+                    // Fixed: Using explicit string matching for hourly labels
                     if selectedTab == 0 {
-                        AxisMarks(values: .stride(by: 4)) { value in
+                        AxisMarks(values: ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]) { value in
+                            AxisGridLine().foregroundStyle(borderColor)
                             AxisValueLabel().font(.system(size: 9))
                         }
                     } else {
-                        AxisMarks { AxisValueLabel().font(.system(size: 9)) }
+                        AxisMarks {
+                            AxisGridLine().foregroundStyle(borderColor)
+                            AxisValueLabel().font(.system(size: 9))
+                        }
                     }
                 }
                 .chartXSelection(value: $rawSelectedDate)
@@ -226,9 +236,9 @@ struct DashboardView: View {
                 
                 HStack {
                     Slider(value: Binding(get: { Double(dailyGoal) }, set: { dailyGoal = Int($0) }), in: 1000...20000, step: 500)
-                        .accentColor(accent)
+                        .tint(accent)
                     Text("\(dailyGoal/1000)k")
-                        .font(.caption.monospacedDigit())
+                        .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.top, -12)
