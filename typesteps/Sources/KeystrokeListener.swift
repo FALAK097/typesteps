@@ -37,13 +37,15 @@ class KeystrokeListener: ObservableObject {
         // Respect the pause state
         guard !isPaused else { return }
         
-        let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        let appName = frontmost?.localizedName ?? "Unknown"
+        let bundleId = frontmost?.bundleIdentifier
         
         guard let characters = event.charactersIgnoringModifiers else { return }
         for char in characters {
             if char.isLetter || char.isNumber {
                 DispatchQueue.main.async {
-                    StorageManager.shared.incrementCount(appName: appName)
+                    StorageManager.shared.incrementCount(appName: appName, bundleId: bundleId)
                 }
             }
         }

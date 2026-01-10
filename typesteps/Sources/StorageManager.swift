@@ -7,11 +7,13 @@ class StorageManager: ObservableObject {
     private let statsKey = "typing_stats_daily"
     private let hourlyKey = "typing_stats_hourly"
     private let appStatsKey = "typing_stats_apps"
+    private let appBundleMappingKey = "typing_app_bundles" 
     private let notifiedKey = "typing_notified_milestones"
     
     @Published var dailyStats: [String: Int] = [:]
     @Published var hourlyStats: [String: Int] = [:]
-    @Published var appStats: [String: Int] = [:] 
+    @Published var appStats: [String: Int] = [:]
+    @Published var appBundleMapping: [String: String] = [:] 
     
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -39,9 +41,12 @@ class StorageManager: ObservableObject {
         if let apps = UserDefaults.standard.dictionary(forKey: appStatsKey) as? [String: Int] {
             self.appStats = apps
         }
+        if let mapping = UserDefaults.standard.dictionary(forKey: appBundleMappingKey) as? [String: String] {
+            self.appBundleMapping = mapping
+        }
     }
     
-    func incrementCount(for date: Date = Date(), appName: String? = nil) {
+    func incrementCount(for date: Date = Date(), appName: String? = nil, bundleId: String? = nil) {
         let dayString = dateFormatter.string(from: date)
         let hourString = hourlyFormatter.string(from: date)
         
@@ -50,6 +55,9 @@ class StorageManager: ObservableObject {
         
         if let appName = appName {
             appStats[appName] = (appStats[appName] ?? 0) + 1
+            if let bundleId = bundleId {
+                appBundleMapping[appName] = bundleId
+            }
         }
         
         checkMilestones(count: dailyStats[dayString] ?? 0, day: dayString)
@@ -93,6 +101,7 @@ class StorageManager: ObservableObject {
         UserDefaults.standard.set(dailyStats, forKey: statsKey)
         UserDefaults.standard.set(hourlyStats, forKey: hourlyKey)
         UserDefaults.standard.set(appStats, forKey: appStatsKey)
+        UserDefaults.standard.set(appBundleMapping, forKey: appBundleMappingKey)
     }
     
     // MARK: - Aggregation

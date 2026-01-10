@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+internal import UniformTypeIdentifiers
 
 struct ActivityPoint: Identifiable {
     let id = UUID()
@@ -7,15 +8,53 @@ struct ActivityPoint: Identifiable {
     let count: Int
 }
 
+struct AppIconView: View {
+    let bundleId: String?
+    let size: CGFloat
+    
+    var body: some View {
+        if let bundleId = bundleId,
+           let appUrl = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: appUrl.path))
+                .resizable()
+                .frame(width: size, height: size)
+        } else {
+            Image(systemName: "app.dashed")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: size, height: size)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 struct DashboardView: View {
     @ObservedObject var storage = StorageManager.shared
     @State private var selectedTab = 0 
+    @State private var selectedSidebarItem: SidebarItem? = .overview
     @AppStorage("app_theme") private var appTheme = 0 
     @AppStorage("daily_goal") private var dailyGoal = 5000 
     
     @State private var rawSelectedDate: String?
     @State private var hoveredDay: String?
     @State private var hoveredCount: Int?
+    
+    enum SidebarItem: String, CaseIterable, Identifiable {
+        case overview = "Overview"
+        case apps = "Applications"
+        case history = "History"
+        case settings = "Settings"
+        
+        var id: String { self.rawValue }
+        var icon: String {
+            switch self {
+            case .overview: return "square.grid.2x2"
+            case .apps: return "app.window.stack"
+            case .history: return "calendar"
+            case .settings: return "gear"
+            }
+        }
+    }
     
     // Explicit Indigo - using tint for all controls
     private let accent = Color(red: 99/255, green: 102/255, blue: 241/255) 
@@ -33,69 +72,133 @@ struct DashboardView: View {
     }
     
     var body: some View {
-        GeometryReader { geo in
-            VStack(spacing: 0) {
-                header
+        NavigationSplitView {
+            List(SidebarItem.allCases, selection: $selectedSidebarItem) { item in
+                NavigationLink(value: item) {
+                    Label(item.rawValue, systemImage: item.icon)
+                        .font(.system(size: 13, weight: .medium))
+                }
+            }
+            .listStyle(.sidebar)
+            .navigationTitle("TypeSteps")
+        } detail: {
+            ZStack {
+                bgMain.ignoresSafeArea()
                 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 40) {
-                        if geo.size.width > 700 {
-                            HStack(alignment: .top, spacing: 48) {
-                                leftColumn
-                                rightColumn
-                            }
-                        } else {
-                            VStack(alignment: .leading, spacing: 40) {
-                                leftColumn
-                                rightColumn
-                            }
-                        }
+                VStack(spacing: 0) {
+                    header
+                    
+                    ScrollView(showsIndicators: false) {
+                        content
+                            .padding(40)
                     }
-                    .padding(geo.size.width > 700 ? 40 : 24)
                 }
             }
         }
-        .background(bgMain)
-        .tint(accent) // Applies to all buttons/pickers inside
+        .tint(accent)
+    }
+    
+    @ViewBuilder
+    private var content: some View {
+        switch selectedSidebarItem {
+        case .overview, .none:
+            overviewView
+        case .apps:
+            appsView
+        case .history:
+            historyView
+        case .settings:
+            settingsView
+        }
+    }
+    
+    private var overviewView: some View {
+        HStack(alignment: .top, spacing: 48) {
+            leftColumn
+            
+            VStack(alignment: .leading, spacing: 48) {
+                rightColumn
+                heatmapSection
+                topAppsSection
+            }
+        }
+    }
+    
+    private var appsView: some View {
+        VStack(alignment: .leading, spacing: 32) {
+            Text("Top Applications")
+                .font(.system(size: 24, weight: .bold))
+            topAppsSection
+        }
+    }
+    
+    private var historyView: some View {
+        VStack(alignment: .leading, spacing: 32) {
+            Text("Activity History")
+                .font(.system(size: 24, weight: .bold))
+            heatmapSection
+        }
+    }
+    
+    private var settingsView: some View {
+        VStack(alignment: .leading, spacing: 32) {
+            Text("Settings")
+                .font(.system(size: 24, weight: .bold))
+            
+            VStack(alignment: .leading, spacing: 16) {
+                Text("DAILY GOAL")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                
+                HStack {
+                    Slider(value: Binding(get: { Double(dailyGoal) }, set: { dailyGoal = Int($0) }), in: 1000...20000, step: 500)
+                        .frame(width: 200)
+                    Text("\(dailyGoal) letters")
+                        .font(.system(size: 13, design: .monospaced))
+                }
+            }
+            
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 16) {
+                Text("APPEARANCE")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                
+                Picker("Theme", selection: $appTheme) {
+                    Text("System").tag(0)
+                    Text("Light").tag(1)
+                    Text("Dark").tag(2)
+                }
+                .pickerStyle(.radioGroup)
+            }
+        }
     }
     
     private var header: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("TypeSteps")
-                    .font(.system(size: 14, weight: .semibold))
+                Text(selectedSidebarItem?.rawValue ?? "Dashboard")
+                    .font(.system(size: 18, weight: .bold))
                 
                 Spacer()
                 
-                // Theme Toggle
-                Button {
-                    appTheme = (appTheme + 1) % 3
-                } label: {
-                    Image(systemName: themeIcon)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                        .background(bgSecondary)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(borderColor, lineWidth: 1))
+                if selectedSidebarItem == .overview {
+                    Picker("", selection: $selectedTab) {
+                        Text("Day").tag(0)
+                        Text("Week").tag(1)
+                        Text("Month").tag(2)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 160)
+                    .tint(accent)
+                    .scaleEffect(0.9)
                 }
-                .buttonStyle(.plain)
-                .padding(.trailing, 8)
-                
-                Picker("", selection: $selectedTab) {
-                    Text("Day").tag(0)
-                    Text("Week").tag(1)
-                    Text("Month").tag(2)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 160)
-                .tint(accent)
-                .scaleEffect(0.9)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 40)
+            .padding(.vertical, 16)
             
-            Divider().background(borderColor)
+            Divider().opacity(0.5)
         }
     }
     
@@ -238,23 +341,9 @@ struct DashboardView: View {
                 InsightRow(label: "STREAK", value: "\(storage.getCurrentStreak()) days", icon: "flame")
                 InsightRow(label: "PEAK HOUR", value: String(format: "%02d:00", storage.getPeakHour().hour), icon: "clock")
                 InsightRow(label: "AVG / HOUR", value: "\(storage.getAveragePerHour())", icon: "bolt")
-                InsightRow(label: "DAILY GOAL", value: "\(dailyGoal)", icon: "target")
-                
-                HStack {
-                    Slider(value: Binding(get: { Double(dailyGoal) }, set: { dailyGoal = Int($0) }), in: 1000...20000, step: 500)
-                        .tint(accent)
-                    Text("\(dailyGoal/1000)k")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.top, -12)
             }
             
             highlightsSection
-            
-            heatmapSection
-            
-            topAppsSection
             
             HStack(spacing: 12) {
                 Button(action: shareStats) {
@@ -284,7 +373,7 @@ struct DashboardView: View {
                 .buttonStyle(.plain)
             }
         }
-        .frame(maxWidth: 400)
+        .frame(width: 300)
     }
     
     private var highlightsSection: some View {
@@ -354,26 +443,36 @@ struct DashboardView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(topApps, id: \.name) { app in
-                        HStack {
-                            Text(app.name)
-                                .font(.system(size: 13, weight: .medium))
+                        HStack(spacing: 12) {
+                            AppIconView(bundleId: storage.appBundleMapping[app.name], size: 24)
+                                .shadow(radius: 1)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(app.name)
+                                    .font(.system(size: 13, weight: .semibold))
+                                
+                                let total = storage.getTotalAllTime()
+                                let percentage = total > 0 ? Double(app.count) / Double(total) : 0
+                                
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(borderColor)
+                                        .frame(width: 100, height: 4)
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(accent.gradient)
+                                        .frame(width: 100 * percentage, height: 4)
+                                }
+                            }
+                            
                             Spacer()
+                            
                             Text("\(app.count)")
                                 .font(.system(size: 13, design: .monospaced))
                                 .foregroundStyle(.secondary)
-                            
-                            let total = storage.getTotalAllTime()
-                            let percentage = total > 0 ? Double(app.count) / Double(total) : 0
-                            
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(borderColor)
-                                    .frame(width: 60, height: 4)
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(accent)
-                                    .frame(width: 60 * percentage, height: 4)
-                            }
                         }
+                        .padding(8)
+                        .background(bgSecondary.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
             }

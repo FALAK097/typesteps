@@ -59,7 +59,7 @@ struct TypeStepsApp: App {
                 .preferredColorScheme(appTheme == 0 ? nil : (appTheme == 1 ? .light : .dark))
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 500, height: 750)
+        .defaultSize(width: 1000, height: 750)
         
         .commands {
             CommandGroup(replacing: .appInfo) {
