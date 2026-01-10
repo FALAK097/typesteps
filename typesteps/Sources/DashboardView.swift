@@ -36,10 +36,12 @@ struct AppIconView: View {
 
 struct DashboardView: View {
     @ObservedObject var storage = StorageManager.shared
+    @ObservedObject var wakaTime = WakaTimeManager.shared
     @State private var selectedTab = 0 
     @AppStorage("app_theme") private var appTheme = 0 
     @AppStorage("daily_goal") private var dailyGoal = 5000 
     
+    @State private var isShowingWakaKey = false
     @State private var rawSelectedDate: String?
     @State private var hoveredDay: String?
     @State private var hoveredCount: Int?
@@ -314,8 +316,94 @@ struct DashboardView: View {
             }
             
             highlightsSection
+            
+            wakaTimeSection
         }
         .frame(maxWidth: 350)
+    }
+    
+    private var wakaTimeSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("WAKATIME INTEGRATION")
+                    .font(.system(size: 10, weight: .medium))
+                    .kerning(1.5)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                if wakaTime.isFetching {
+                    ProgressView().scaleEffect(0.5)
+                } else {
+                    Button {
+                        wakaTime.fetchTodayStats(apiKey: storage.wakaTimeApiKey)
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            
+            VStack(alignment: .leading, spacing: 12) {
+                if storage.wakaTimeApiKey.isEmpty {
+                    Text("Enter your API Key to see typing density and active time.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: 20) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("ACTIVE TIME")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.secondary)
+                            Text(String(format: "%.1f hrs", wakaTime.totalMinutesToday / 60.0))
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("DENSITY")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.secondary)
+                            let density = wakaTime.totalMinutesToday > 0 ? Double(storage.getCount()) / wakaTime.totalMinutesToday : 0
+                            Text(String(format: "%.1f s/m", density))
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                        }
+                    }
+                }
+                
+                HStack {
+                    if isShowingWakaKey {
+                        TextField("WakaTime API Key", text: $storage.wakaTimeApiKey)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 10, design: .monospaced))
+                    } else {
+                        Text(storage.wakaTimeApiKey.isEmpty ? "No API Key" : "••••••••••••••••")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button(isShowingWakaKey ? "Save" : "Edit") {
+                        isShowingWakaKey.toggle()
+                        if !isShowingWakaKey {
+                            wakaTime.fetchTodayStats(apiKey: storage.wakaTimeApiKey)
+                        }
+                    }
+                    .font(.system(size: 10, weight: .bold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(accent)
+                }
+                .padding(8)
+                .background(bgSecondary.opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .onAppear {
+            if !storage.wakaTimeApiKey.isEmpty {
+                wakaTime.fetchTodayStats(apiKey: storage.wakaTimeApiKey)
+            }
+        }
     }
     
     private var highlightsSection: some View {

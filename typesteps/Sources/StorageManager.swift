@@ -10,6 +10,8 @@ class StorageManager: ObservableObject {
     private let appBundleMappingKey = "typing_app_bundles" 
     private let notifiedKey = "typing_notified_milestones"
     
+    @AppStorage("wakatime_api_key") var wakaTimeApiKey: String = ""
+    
     @Published var dailyStats: [String: Int] = [:]
     @Published var hourlyStats: [String: Int] = [:]
     @Published var appStats: [String: Int] = [:]
