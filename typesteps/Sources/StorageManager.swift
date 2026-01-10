@@ -150,53 +150,19 @@ class StorageManager: ObservableObject {
             .map { (name: $0.key, count: $0.value) }
     }
     
-    func getPulseData() -> [ActivityPoint] {
-        var points: [ActivityPoint] = []
-        let now = Date()
-        for i in (0..<60).reversed() {
-            if let date = Calendar.current.date(byAdding: .minute, value: -i, to: now) {
-                let key = minuteFormatter.string(from: date)
-                let count = minuteStats[key] ?? 0
-                let label = i % 10 == 0 ? "\(i)m" : ""
-                points.append(ActivityPoint(label: label, count: count))
-            }
-        }
-        return points
-    }
-    
-    func getCurrentKPM() -> Int {
-        let key = minuteFormatter.string(from: Date())
-        return minuteStats[key] ?? 0
-    }
-    
-    func isInFlow() -> Bool {
-        // Flow: typing in at least 10 of the last 15 minutes
-        let now = Date()
-        var activeMinutes = 0
-        for i in 0..<15 {
-            if let date = Calendar.current.date(byAdding: .minute, value: -i, to: now) {
-                let key = minuteFormatter.string(from: date)
-                if (minuteStats[key] ?? 0) > 20 { // More than 20 chars per min
-                    activeMinutes += 1
-                }
-            }
-        }
-        return activeMinutes >= 10
-    }
-    
     func getLibraryStats() -> [(book: String, pages: Double, progress: Double)] {
         let total = Double(getTotalAllTime())
         let milestones = [
-            ("Hello World", 100.0),
-            ("First Script", 1000.0),
-            ("Standard Library", 10000.0),
-            ("Framework Architect", 100000.0),
-            ("Open Source Legend", 1000000.0)
+            ("Keyboard Sprint (100m)", 10000.0),
+            ("The Tower (Burj Khalifa)", 50000.0),
+            ("City Explorer (Central Park)", 250000.0),
+            ("Mountain King (Mt. Everest)", 1000000.0),
+            ("Channel Swimmer (English Channel)", 5000000.0),
+            ("Grand Tour (Across India)", 50000000.0)
         ]
         
         return milestones.map { name, chars in
             let progress = min(1.0, total / chars)
-            // Show how many "versions" or "iterations" of this milestone you've done
             let iterations = total / chars
             return (name, iterations, progress)
         }

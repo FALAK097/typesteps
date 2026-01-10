@@ -25,9 +25,6 @@ struct TypeStepsApp: App {
     var body: some Scene {
         MenuBarExtra {
             Text("Today: \(storage.getCount())")
-            if storage.isInFlow() {
-                Text("FLOW STATE 🔥").foregroundStyle(.orange)
-            }
             Text("This Week: \(storage.getWeeklyTotal())")
             Text("This Month: \(storage.getMonthlyTotal())")
             

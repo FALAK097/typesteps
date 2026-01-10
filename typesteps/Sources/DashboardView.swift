@@ -36,6 +36,7 @@ struct DashboardView: View {
     @AppStorage("daily_goal") private var dailyGoal = 5000 
     
     @State private var isShowingWakaKey = false
+    @State private var hoveredAction: String?
     @State private var rawSelectedDate: String?
     @State private var hoveredDay: String?
     @State private var hoveredCount: Int?
@@ -85,64 +86,50 @@ struct DashboardView: View {
     private var header: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Text("TypeSteps")
-                    .font(.system(size: 14, weight: .semibold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("TypeSteps")
+                        .font(.system(size: 14, weight: .semibold))
+                    if let hoveredAction {
+                        Text(hoveredAction)
+                            .font(.system(size: 8, weight: .black))
+                            .foregroundStyle(accent)
+                            .transition(.opacity)
+                    }
+                }
                 Spacer()
                 HStack(spacing: 8) {
                     Button(action: shareStats) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 28, height: 28)
-                            .background(bgSecondary)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(borderColor, lineWidth: 1))
+                        Image(systemName: "square.and.arrow.up").font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 28, height: 28).background(bgSecondary).clipShape(Circle()).overlay(Circle().stroke(borderColor, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
-                    .help("Share Statistics Card")
+                    .onHover { h in hoveredAction = h ? "SHARE SNAPSHOT" : nil }
                     
                     Button(action: exportCSV) {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 28, height: 28)
-                            .background(bgSecondary)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(borderColor, lineWidth: 1))
+                        Image(systemName: "doc.text").font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 28, height: 28).background(bgSecondary).clipShape(Circle()).overlay(Circle().stroke(borderColor, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
-                    .help("Export Data to CSV")
+                    .onHover { h in hoveredAction = h ? "EXPORT CSV" : nil }
                 }
                 .padding(.trailing, 8)
                 
                 Button {
                     appTheme = (appTheme + 1) % 3
                 } label: {
-                    Image(systemName: themeIcon)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                        .background(bgSecondary)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(borderColor, lineWidth: 1))
+                    Image(systemName: themeIcon).font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 28, height: 28).background(bgSecondary).clipShape(Circle()).overlay(Circle().stroke(borderColor, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .padding(.trailing, 8)
-                .help("Change Theme (System/Light/Dark)")
+                .onHover { h in hoveredAction = h ? "TOGGLE THEME" : nil }
                 
                 Picker("", selection: $selectedTab) {
                     Text("Day").tag(0)
                     Text("Week").tag(1)
                     Text("Month").tag(2)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 160)
-                .tint(accent)
-                .scaleEffect(0.9)
-                .help("Switch View Mode")
+                .pickerStyle(.segmented).frame(width: 160).tint(accent).scaleEffect(0.9)
+                .onHover { h in hoveredAction = h ? "SWITCH VIEW" : nil }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 24).padding(.vertical, 12).animation(.easeInOut(duration: 0.2), value: hoveredAction)
             Divider().opacity(0.5)
         }
     }
@@ -160,19 +147,12 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 32) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .lastTextBaseline) {
-                        Text(currentLabel.uppercased())
-                            .font(.system(size: 10, weight: .medium))
-                            .kerning(1.5)
-                            .foregroundStyle(.secondary)
+                        Text(currentLabel.uppercased()).font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(.secondary)
                         Spacer()
-                        Text(dateSubtitle)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                        Text(dateSubtitle).font(.system(size: 10)).foregroundStyle(.secondary)
                     }
                     HStack(alignment: .bottom) {
-                        Text("\(currentMainCount)")
-                            .font(.system(size: 56, weight: .bold))
-                            .contentTransition(.numericText())
+                        Text("\(currentMainCount)").font(.system(size: 56, weight: .bold)).contentTransition(.numericText())
                         if selectedTab == 0 {
                             Spacer()
                             goalProgressCircle
@@ -182,35 +162,23 @@ struct DashboardView: View {
                 
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        Text("ACTIVITY TREND")
-                            .font(.system(size: 10, weight: .medium))
-                            .kerning(1.5)
-                            .foregroundStyle(.secondary)
+                        Text("ACTIVITY TREND").font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(.secondary)
                         if let selectedValue = selectedPointValue {
                             Spacer()
-                            Text("\(selectedValue) letters")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(accent)
+                            Text("\(selectedValue) letters").font(.system(size: 10, weight: .bold)).foregroundStyle(accent)
                         }
                     }
                     Chart {
                         ForEach(chartData) { point in
                             if selectedTab == 0 {
-                                AreaMark(x: .value("T", point.label), y: .value("C", point.count))
-                                    .interpolationMethod(.monotone)
-                                    .foregroundStyle(accent.opacity(0.1).gradient)
-                                LineMark(x: .value("T", point.label), y: .value("C", point.count))
-                                    .interpolationMethod(.monotone)
-                                    .foregroundStyle(accent)
+                                AreaMark(x: .value("T", point.label), y: .value("C", point.count)).interpolationMethod(.monotone).foregroundStyle(accent.opacity(0.1).gradient)
+                                LineMark(x: .value("T", point.label), y: .value("C", point.count)).interpolationMethod(.monotone).foregroundStyle(accent)
                             } else {
-                                BarMark(x: .value("L", point.label), y: .value("C", point.count))
-                                    .foregroundStyle(accent.gradient)
-                                    .cornerRadius(2)
+                                BarMark(x: .value("L", point.label), y: .value("C", point.count)).foregroundStyle(accent.gradient).cornerRadius(2)
                             }
                         }
                         if let rawSelectedDate {
-                            RuleMark(x: .value("Selected", rawSelectedDate))
-                                .foregroundStyle(Color.secondary.opacity(0.3))
+                            RuleMark(x: .value("Selected", rawSelectedDate)).foregroundStyle(Color.secondary.opacity(0.3))
                         }
                     }
                     .frame(height: 200)
@@ -239,7 +207,7 @@ struct DashboardView: View {
             HStack(alignment: .top, spacing: 48) {
                 VStack(alignment: .leading, spacing: 48) {
                     heatmapSection
-                    librarySection
+                    journeySection
                 }
                 .frame(maxWidth: .infinity)
                 topAppsSection
@@ -248,32 +216,22 @@ struct DashboardView: View {
         }
     }
     
-    private var librarySection: some View {
+    private var journeySection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("DEVELOPER JOURNEY")
-                .font(.system(size: 10, weight: .medium))
-                .kerning(1.5)
-                .foregroundStyle(.secondary)
+            Text("THE WORLD TOUR").font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(.secondary)
             VStack(spacing: 12) {
                 ForEach(storage.getLibraryStats(), id: \.book) { item in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text(item.book)
-                                .font(.system(size: 11, weight: .semibold))
+                            Text(item.book).font(.system(size: 11, weight: .semibold))
                             Spacer()
                             if item.progress >= 1.0 {
-                                Text("\(Int(item.pages))x completed")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.green)
+                                Text("\(Int(item.pages))x completed").font(.system(size: 9, weight: .bold)).foregroundStyle(.green)
                             } else {
-                                Text("\(Int(item.progress * 100))%")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.secondary)
+                                Text("\(Int(item.progress * 100))%").font(.system(size: 9)).foregroundStyle(.secondary)
                             }
                         }
-                        ProgressView(value: item.progress)
-                            .tint(item.progress >= 1.0 ? .green : accent.opacity(0.8))
-                            .scaleEffect(x: 1, y: 0.5, anchor: .center)
+                        ProgressView(value: item.progress).tint(item.progress >= 1.0 ? .green : accent.opacity(0.8)).scaleEffect(x: 1, y: 0.5, anchor: .center)
                     }
                 }
             }
@@ -283,21 +241,15 @@ struct DashboardView: View {
     private var rightColumn: some View {
         VStack(alignment: .leading, spacing: 40) {
             VStack(alignment: .leading, spacing: 24) {
-                Text("INSIGHTS")
-                    .font(.system(size: 10, weight: .medium))
-                    .kerning(1.5)
-                    .foregroundStyle(.secondary)
+                Text("INSIGHTS").font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(.secondary)
                 InsightRow(label: "BEST DAY", value: "\(storage.getBestDay().count)", icon: "arrow.up.right")
                 InsightRow(label: "STREAK", value: "\(storage.getCurrentStreak()) days", icon: "flame")
                 InsightRow(label: "PEAK HOUR", value: String(format: "%02d:00", storage.getPeakHour().hour), icon: "clock")
                 InsightRow(label: "AVG / HOUR", value: "\(storage.getAveragePerHour())", icon: "bolt")
                 InsightRow(label: "DAILY GOAL", value: "\(dailyGoal)", icon: "target")
                 HStack {
-                    Slider(value: Binding(get: { Double(dailyGoal) }, set: { dailyGoal = Int($0) }), in: 1000...20000, step: 500)
-                        .tint(accent)
-                    Text("\(dailyGoal/1000)k")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                    Slider(value: Binding(get: { Double(dailyGoal) }, set: { dailyGoal = Int($0) }), in: 1000...20000, step: 500).tint(accent)
+                    Text("\(dailyGoal/1000)k").font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
                 }
                 .padding(.top, -12)
             }
@@ -310,26 +262,16 @@ struct DashboardView: View {
     private var wakaTimeSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("WAKATIME INTEGRATION")
-                    .font(.system(size: 10, weight: .medium))
-                    .kerning(1.5)
-                    .foregroundStyle(.secondary)
+                Text("WAKATIME INTEGRATION").font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(.secondary)
                 Spacer()
                 HStack(spacing: 12) {
                     if !storage.wakaTimeApiKey.isEmpty {
-                        Link(destination: URL(string: "https://wakatime.com/dashboard")!) {
-                            Image(systemName: "arrow.up.right.square").font(.system(size: 10)).foregroundStyle(accent)
-                        }
+                        Link(destination: URL(string: "https://wakatime.com/dashboard")!) { Image(systemName: "arrow.up.right.square").font(.system(size: 10)).foregroundStyle(accent) }
                     }
                     if wakaTime.isFetching {
                         ProgressView().scaleEffect(0.5)
                     } else {
-                        Button {
-                            wakaTime.fetchTodayStats(apiKey: storage.wakaTimeApiKey)
-                        } label: {
-                            Image(systemName: "arrow.clockwise").font(.system(size: 10))
-                        }
-                        .buttonStyle(.plain)
+                        Button { wakaTime.fetchTodayStats(apiKey: storage.wakaTimeApiKey) } label: { Image(systemName: "arrow.clockwise").font(.system(size: 10)) }.buttonStyle(.plain)
                     }
                 }
             }
@@ -339,18 +281,12 @@ struct DashboardView: View {
                 } else {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "clock.fill").font(.system(size: 10)).foregroundStyle(.blue)
-                                Text("ACTIVE TIME").font(.system(size: 8, weight: .black)).foregroundStyle(.secondary)
-                            }
+                            HStack { Image(systemName: "clock.fill").font(.system(size: 10)).foregroundStyle(.blue); Text("ACTIVE TIME").font(.system(size: 8, weight: .black)).foregroundStyle(.secondary) }
                             Text(formatWakaTime(minutes: wakaTime.totalMinutesToday)).font(.system(size: 18, weight: .bold, design: .rounded))
                         }
                         .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(Color.blue.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 12))
                         VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "gauge.with.needle.fill").font(.system(size: 10)).foregroundStyle(.purple)
-                                Text("DENSITY").font(.system(size: 8, weight: .black)).foregroundStyle(.secondary)
-                            }
+                            HStack { Image(systemName: "gauge.with.needle.fill").font(.system(size: 10)).foregroundStyle(.purple); Text("DENSITY").font(.system(size: 8, weight: .black)).foregroundStyle(.secondary) }
                             let density = wakaTime.totalMinutesToday > 0 ? Double(storage.getCount()) / wakaTime.totalMinutesToday : 0
                             Text("\(Int(density)) s/m").font(.system(size: 18, weight: .bold, design: .rounded))
                         }
@@ -385,12 +321,8 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("WEEKLY HIGHLIGHTS").font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(.secondary)
             HStack(spacing: 12) {
-                if let mostActive = storage.getMostActiveDayThisWeek() {
-                    HighlightCard(title: "MOST ACTIVE", subtitle: mostActive.date, value: "\(mostActive.count)", icon: "bolt.fill", color: .orange)
-                }
-                if let quietest = storage.getQuietestDay() {
-                    HighlightCard(title: "QUIETEST", subtitle: quietest.date, value: "\(quietest.count)", icon: "leaf.fill", color: .green)
-                }
+                if let mostActive = storage.getMostActiveDayThisWeek() { HighlightCard(title: "MOST ACTIVE", subtitle: mostActive.date, value: "\(mostActive.count)", icon: "bolt.fill", color: .orange) }
+                if let quietest = storage.getQuietestDay() { HighlightCard(title: "QUIETEST", subtitle: quietest.date, value: "\(quietest.count)", icon: "leaf.fill", color: .green) }
             }
         }
     }
@@ -400,11 +332,8 @@ struct DashboardView: View {
             HStack {
                 Text("2026 CONSISTENCY").font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(.secondary)
                 Spacer()
-                if let hoveredDay, let hoveredCount {
-                    Text("\(hoveredDay): \(hoveredCount) steps").font(.system(size: 10, weight: .bold)).foregroundStyle(accent)
-                } else {
-                    Text("\(storage.getTotalAllTime()) Total").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                }
+                if let hoveredDay, let hoveredCount { Text("\(hoveredDay): \(hoveredCount) steps").font(.system(size: 10, weight: .bold)).foregroundStyle(accent) }
+                else { Text("\(storage.getTotalAllTime()) Total").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary) }
             }
             let daysIn2026 = 365
             ScrollView(.horizontal, showsIndicators: false) {
@@ -422,33 +351,20 @@ struct DashboardView: View {
             HStack {
                 Text("TOP APPLICATIONS").font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(.secondary)
                 Spacer()
-                if !storage.projectStats.isEmpty {
-                    Text("PROJECTS").font(.system(size: 10, weight: .medium)).foregroundStyle(accent)
-                }
+                if !storage.projectStats.isEmpty { Text("PROJECTS").font(.system(size: 10, weight: .medium)).foregroundStyle(accent) }
             }
             let topApps = storage.getTopApps()
-            if topApps.isEmpty {
-                Text("No app data yet").font(.system(size: 12)).foregroundStyle(.secondary)
-            } else {
+            if topApps.isEmpty { Text("No app data yet").font(.system(size: 12)).foregroundStyle(.secondary) }
+            else {
                 VStack(spacing: 8) {
                     ForEach(topApps, id: \.name) { app in
                         HStack(spacing: 12) {
                             AppIconView(bundleId: storage.appBundleMapping[app.name], size: 28)
                             VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(app.name).font(.system(size: 12, weight: .bold))
-                                    Spacer()
-                                    Text("\(app.count)").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
-                                }
+                                HStack { Text(app.name).font(.system(size: 12, weight: .bold)); Spacer(); Text("\(app.count)").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary) }
                                 let total = storage.appStats.values.reduce(0, +)
                                 let percentage = total > 0 ? Double(app.count) / Double(total) : 0
-                                GeometryReader { barGeo in
-                                    ZStack(alignment: .leading) {
-                                        Capsule().fill(borderColor).frame(height: 4)
-                                        Capsule().fill(accent.gradient).frame(width: barGeo.size.width * percentage, height: 4)
-                                    }
-                                }
-                                .frame(height: 4)
+                                GeometryReader { barGeo in ZStack(alignment: .leading) { Capsule().fill(borderColor).frame(height: 4); Capsule().fill(accent.gradient).frame(width: barGeo.size.width * percentage, height: 4) } }.frame(height: 4)
                             }
                         }
                         .padding(10).background(bgSecondary.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).stroke(borderColor.opacity(0.5), lineWidth: 0.5))
@@ -459,13 +375,7 @@ struct DashboardView: View {
             if !topProjects.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(topProjects, id: \.name) { project in
-                        HStack {
-                            Image(systemName: "folder.fill").font(.system(size: 10)).foregroundStyle(accent)
-                            Text(project.name).font(.system(size: 11, weight: .medium))
-                            Spacer()
-                            Text("\(project.count) steps").font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 8)
+                        HStack { Image(systemName: "folder.fill").font(.system(size: 10)).foregroundStyle(accent); Text(project.name).font(.system(size: 11, weight: .medium)); Spacer(); Text("\(project.count) steps").font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary) }.padding(.horizontal, 8)
                     }
                 }
                 .padding(.top, 8)
@@ -475,28 +385,13 @@ struct DashboardView: View {
     
     private func heatmapCell(dayOfYear: Int) -> some View {
         let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = 2026
-        components.day = dayOfYear + 1
+        var components = DateComponents(); components.year = 2026; components.day = dayOfYear + 1
         let date = calendar.date(from: components)!
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let key = formatter.string(from: date)
-        let count = storage.dailyStats[key] ?? 0
-        let intensity = min(1.0, Double(count) / Double(max(1, dailyGoal)))
-        let isFuture = date > Date()
-        return RoundedRectangle(cornerRadius: 1.5)
-            .fill(count > 0 ? accent.opacity(0.2 + intensity * 0.8) : (isFuture ? Color.clear : borderColor.opacity(0.3)))
-            .frame(width: 10, height: 10)
-            .onHover { hovering in
-                if hovering {
-                    hoveredDay = key
-                    hoveredCount = count
-                } else if hoveredDay == key {
-                    hoveredDay = nil
-                    hoveredCount = nil
-                }
-            }
+        let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd"
+        let key = formatter.string(from: date); let count = storage.dailyStats[key] ?? 0
+        let intensity = min(1.0, Double(count) / Double(max(1, dailyGoal))); let isFuture = date > Date()
+        return RoundedRectangle(cornerRadius: 1.5).fill(count > 0 ? accent.opacity(0.2 + intensity * 0.8) : (isFuture ? Color.clear : borderColor.opacity(0.3))).frame(width: 10, height: 10)
+            .onHover { hovering in if hovering { hoveredDay = key; hoveredCount = count } else { hoveredDay = nil; hoveredCount = nil } }
             .help("\(key): \(count) letters")
     }
     
@@ -519,22 +414,12 @@ struct DashboardView: View {
     }
     
     private var dateSubtitle: String {
-        let formatter = DateFormatter()
-        let now = Date()
+        let formatter = DateFormatter(); let now = Date()
         switch selectedTab {
-        case 0:
-            formatter.dateFormat = "MMM d, yyyy"
-            return formatter.string(from: now)
-        case 1:
-            let components = Calendar.current.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
-            let startOfWeek = Calendar.current.date(from: components)!
-            formatter.dateFormat = "MMM d"
-            return "\(formatter.string(from: startOfWeek)) - \(formatter.string(from: now))"
-        case 2:
-            formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: now)
-        default:
-            return ""
+        case 0: formatter.dateFormat = "MMM d, yyyy"; return formatter.string(from: now)
+        case 1: let components = Calendar.current.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now); let startOfWeek = Calendar.current.date(from: components)!; formatter.dateFormat = "MMM d"; return "\(formatter.string(from: startOfWeek)) - \(formatter.string(from: now))"
+        case 2: formatter.dateFormat = "MMMM yyyy"; return formatter.string(from: now)
+        default: return ""
         }
     }
     
@@ -548,10 +433,7 @@ struct DashboardView: View {
         return ZStack {
             Circle().stroke(borderColor, lineWidth: 4)
             Circle().trim(from: 0, to: progress).stroke(accent, style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90)).animation(.easeOut(duration: 1.0), value: progress)
-            VStack(spacing: 2) {
-                Text("\(Int(progress * 100))%").font(.system(size: 10, weight: .bold))
-                Text("GOAL").font(.system(size: 6)).foregroundStyle(.secondary)
-            }
+            VStack(spacing: 2) { Text("\(Int(progress * 100))%").font(.system(size: 10, weight: .bold)); Text("GOAL").font(.system(size: 6)).foregroundStyle(.secondary) }
         }
         .frame(width: 48, height: 48).padding(.bottom, 8)
     }
@@ -563,166 +445,77 @@ struct DashboardView: View {
         case 1: rawData = storage.getLastSevenDays()
         case 2: rawData = storage.getLastSixMonths()
         default: rawData = []
-        }
-        return rawData.map { ActivityPoint(label: $0.label, count: $0.count) }
+        }; return rawData.map { ActivityPoint(label: $0.label, count: $0.count) }
     }
     
     private func shareStats() {
         let badge = storage.getProductivityBadge()
-        let card = ShareCard(
-            count: currentMainCount, 
-            label: currentLabel, 
-            theme: appTheme, 
-            topApps: storage.getTopApps(limit: 3),
-            streak: storage.getCurrentStreak(),
-            badge: badge.label,
-            badgeColor: badge.color
-        )
-        let renderer = ImageRenderer(content: card)
-        renderer.scale = 3.0
-        if let image = renderer.nsImage {
-            let picker = NSSharingServicePicker(items: [image])
-            picker.show(relativeTo: NSRect.zero, of: NSApp.keyWindow?.contentView ?? NSView(), preferredEdge: NSRectEdge.minY)
-        }
+        let card = ShareCard(count: currentMainCount, label: currentLabel, theme: appTheme, topApps: storage.getTopApps(limit: 3), streak: storage.getCurrentStreak(), badge: badge.label, badgeColor: badge.color)
+        let renderer = ImageRenderer(content: card); renderer.scale = 3.0
+        if let image = renderer.nsImage { let picker = NSSharingServicePicker(items: [image]); picker.show(relativeTo: NSRect.zero, of: NSApp.keyWindow?.contentView ?? NSView(), preferredEdge: NSRectEdge.minY) }
     }
     
     private func exportCSV() {
         var csvString = "Date,Count\n"
-        let sortedKeys = storage.dailyStats.keys.sorted(by: >)
-        for key in sortedKeys { csvString += "\(key),\(storage.dailyStats[key] ?? 0)\n" }
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.commaSeparatedText]
-        savePanel.nameFieldStringValue = "typesteps_export.csv"
-        savePanel.begin { result in
-            if result == .OK, let url = savePanel.url { try? csvString.write(to: url, atomically: true, encoding: .utf8) }
-        }
+        let sortedKeys = storage.dailyStats.keys.sorted(by: >); for key in sortedKeys { csvString += "\(key),\(storage.dailyStats[key] ?? 0)\n" }
+        let savePanel = NSSavePanel(); savePanel.allowedContentTypes = [.commaSeparatedText]; savePanel.nameFieldStringValue = "typesteps_export.csv"
+        savePanel.begin { result in if result == .OK, let url = savePanel.url { try? csvString.write(to: url, atomically: true, encoding: .utf8) } }
     }
 }
 
 struct InsightRow: View {
-    let label: String
-    let value: String
-    let icon: String
+    let label: String; let value: String; let icon: String
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: icon).font(.system(size: 14)).foregroundStyle(Color(red: 99/255, green: 102/255, blue: 241/255)).frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
-                Text(value).font(.system(size: 18, weight: .semibold, design: .rounded))
-            }
+            VStack(alignment: .leading, spacing: 2) { Text(label).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary); Text(value).font(.system(size: 18, weight: .semibold, design: .rounded)) }
         }
     }
 }
 
 struct HighlightCard: View {
-    let title: String
-    let subtitle: String
-    let value: String
-    let icon: String
-    let color: Color
+    let title: String; let subtitle: String; let value: String; let icon: String; let color: Color
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon).font(.system(size: 10, weight: .bold)).foregroundStyle(color)
-                Text(title).font(.system(size: 8, weight: .black)).kerning(1).foregroundStyle(.secondary)
-            }
-            VStack(alignment: .leading, spacing: 0) {
-                Text(value).font(.system(size: 16, weight: .bold, design: .rounded))
-                Text(subtitle).font(.system(size: 9)).foregroundStyle(.secondary)
-            }
+            HStack { Image(systemName: icon).font(.system(size: 10, weight: .bold)).foregroundStyle(color); Text(title).font(.system(size: 8, weight: .black)).kerning(1).foregroundStyle(.secondary) }
+            VStack(alignment: .leading, spacing: 0) { Text(value).font(.system(size: 16, weight: .bold, design: .rounded)); Text(subtitle).font(.system(size: 9)).foregroundStyle(.secondary) }
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(color.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
 struct ShareCard: View {
-    let count: Int
-    let label: String
-    let theme: Int
-    let topApps: [(name: String, count: Int)]
-    let streak: Int
-    let badge: String
-    let badgeColor: Color
-    
+    let count: Int; let label: String; let theme: Int; let topApps: [(name: String, count: Int)]; let streak: Int; let badge: String; let badgeColor: Color
     private let accent = Color(red: 99/255, green: 102/255, blue: 241/255)
-    
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: "keyboard").font(.system(size: 24, weight: .bold)).foregroundStyle(accent)
                 Text("TypeSteps").font(.system(size: 20, weight: .black, design: .rounded))
                 Spacer()
-                Text(badge)
-                    .font(.system(size: 8, weight: .black))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(badgeColor)
-                    .clipShape(Capsule())
+                Text(badge).font(.system(size: 8, weight: .black)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 4).background(badgeColor).clipShape(Capsule())
             }
             .padding(.bottom, 40)
-            
             HStack(alignment: .lastTextBaseline, spacing: 24) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(count)")
-                        .font(.system(size: 72, weight: .bold, design: .rounded))
-                    Text(label.uppercased())
-                        .font(.system(size: 12, weight: .semibold))
-                        .kerning(2)
-                        .foregroundStyle(.secondary)
-                }
-                
+                VStack(alignment: .leading, spacing: 4) { Text("\(count)").font(.system(size: 72, weight: .bold, design: .rounded)); Text(label.uppercased()).font(.system(size: 12, weight: .semibold)).kerning(2).foregroundStyle(.secondary) }
                 Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(streak)")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                    Text("DAY STREAK")
-                        .font(.system(size: 8, weight: .black))
-                        .foregroundStyle(.secondary)
-                }
+                VStack(alignment: .trailing, spacing: 4) { Text("\(streak)").font(.system(size: 32, weight: .bold, design: .rounded)); Text("DAY STREAK").font(.system(size: 8, weight: .black)).foregroundStyle(.secondary) }
             }
             .padding(.bottom, 48)
-            
             if !topApps.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("ACTIVITY DISTRIBUTION")
-                        .font(.system(size: 9, weight: .bold))
-                        .kerning(1.5)
-                        .foregroundStyle(.secondary)
-                    
-                    ForEach(topApps, id: \.name) { app in
-                        HStack {
-                            Text(app.name).font(.system(size: 13, weight: .medium))
-                            Spacer()
-                            Text("\(app.count)").font(.system(size: 13, design: .monospaced)).foregroundStyle(accent)
-                        }
-                    }
+                    Text("ACTIVITY DISTRIBUTION").font(.system(size: 9, weight: .bold)).kerning(1.5).foregroundStyle(.secondary)
+                    ForEach(topApps, id: \.name) { app in HStack { Text(app.name).font(.system(size: 13, weight: .medium)); Spacer(); Text("\(app.count)").font(.system(size: 13, design: .monospaced)).foregroundStyle(accent) } }
                 }
-                .padding(24)
-                .background(accent.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(24).background(accent.opacity(0.05)).clipShape(RoundedRectangle(cornerRadius: 16))
             }
-            
             Spacer()
-            
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("TRACKED ON MACOS")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.secondary)
-                    Text("falakgala.dev/typesteps")
-                        .font(.system(size: 10, weight: .medium))
-                }
+                VStack(alignment: .leading, spacing: 2) { Text("TRACKED ON MACOS").font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary); Text("falakgala.dev/typesteps").font(.system(size: 10, weight: .medium)) }
                 Spacer()
-                Image(systemName: "applelogo")
-                    .font(.system(size: 16))
-                    .foregroundStyle(.secondary)
+                Image(systemName: "applelogo").font(.system(size: 16)).foregroundStyle(.secondary)
             }
         }
-        .padding(48)
-        .frame(width: 500, height: 600)
-        .background(theme == 1 ? Color.white : Color(red: 9/255, green: 9/255, blue: 11/255))
-        .foregroundStyle(theme == 1 ? .black : .white)
+        .padding(48).frame(width: 500, height: 600).background(theme == 1 ? Color.white : Color(red: 9/255, green: 9/255, blue: 11/255)).foregroundStyle(theme == 1 ? .black : .white)
     }
 }
