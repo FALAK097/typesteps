@@ -25,6 +25,8 @@ struct TypeStepsApp: App {
     var body: some Scene {
         MenuBarExtra {
             Text("Today: \(storage.getCount())")
+            Text("This Week: \(storage.getWeeklyTotal())")
+            Text("This Month: \(storage.getMonthlyTotal())")
             
             Divider()
             
@@ -74,7 +76,7 @@ struct TypeStepsApp: App {
         alert.informativeText = """
         A minimalist macOS app that passively tracks your daily typing activity and shows insights across days, weeks, and months.
         
-        Version 1.1.0
+        Version 1.2.0
         Built by falakgala.dev
         """
         alert.addButton(withTitle: "Visit Website")

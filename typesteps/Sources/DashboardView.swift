@@ -14,6 +14,8 @@ struct DashboardView: View {
     @AppStorage("daily_goal") private var dailyGoal = 5000 
     
     @State private var rawSelectedDate: String?
+    @State private var hoveredDay: String?
+    @State private var hoveredCount: Int?
     
     // Explicit Indigo - using tint for all controls
     private let accent = Color(red: 99/255, green: 102/255, blue: 241/255) 
@@ -210,6 +212,7 @@ struct DashboardView: View {
                 .trim(from: 0, to: progress)
                 .stroke(accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+                .animation(.easeOut(duration: 1.0), value: progress)
             
             VStack(spacing: 2) {
                 Text("\(Int(progress * 100))%")
@@ -232,6 +235,9 @@ struct DashboardView: View {
                     .foregroundStyle(.secondary)
                 
                 InsightRow(label: "BEST DAY", value: "\(storage.getBestDay().count)", icon: "arrow.up.right")
+                InsightRow(label: "STREAK", value: "\(storage.getCurrentStreak()) days", icon: "flame")
+                InsightRow(label: "PEAK HOUR", value: String(format: "%02d:00", storage.getPeakHour().hour), icon: "clock")
+                InsightRow(label: "AVG / HOUR", value: "\(storage.getAveragePerHour())", icon: "bolt")
                 InsightRow(label: "DAILY GOAL", value: "\(dailyGoal)", icon: "target")
                 
                 HStack {
@@ -270,9 +276,15 @@ struct DashboardView: View {
                     .kerning(1.5)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(storage.getTotalAllTime()) Total")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
+                if let hoveredDay, let hoveredCount {
+                    Text("\(hoveredDay): \(hoveredCount) steps")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(accent)
+                } else {
+                    Text("\(storage.getTotalAllTime()) Total")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
             }
             
             let daysIn2026 = 365
@@ -307,6 +319,15 @@ struct DashboardView: View {
         return RoundedRectangle(cornerRadius: 1.5)
             .fill(count > 0 ? accent.opacity(0.2 + intensity * 0.8) : (isFuture ? Color.clear : borderColor.opacity(0.3)))
             .frame(width: 10, height: 10)
+            .onHover { hovering in
+                if hovering {
+                    hoveredDay = key
+                    hoveredCount = count
+                } else if hoveredDay == key {
+                    hoveredDay = nil
+                    hoveredCount = nil
+                }
+            }
             .help("\(key): \(count) letters")
     }
     

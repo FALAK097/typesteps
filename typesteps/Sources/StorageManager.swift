@@ -51,7 +51,7 @@ class StorageManager: ObservableObject {
         let goal = UserDefaults.standard.integer(forKey: "daily_goal")
         guard goal > 0 else { return }
         
-        let milestones = [0.5, 0.8, 1.0]
+        let milestones = [1.0]
         var notified = UserDefaults.standard.dictionary(forKey: notifiedKey) as? [String: [Double]] ?? [:]
         var dayNotified = notified[day] ?? []
         
@@ -68,8 +68,8 @@ class StorageManager: ObservableObject {
     
     private func sendNotification(milestone: Int) {
         let content = UNMutableNotificationContent()
-        content.title = "TypeSteps Milestone! 🚀"
-        content.body = "You've reached \(milestone)% of your daily typing goal."
+        content.title = "Goal Reached! 🎯"
+        content.body = "Congratulations! You've reached your daily typing goal."
         content.sound = .default
         
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
@@ -169,5 +169,52 @@ class StorageManager: ObservableObject {
     
     func getTotalAllTime() -> Int {
         return dailyStats.values.reduce(0, +)
+    }
+    
+    func getPeakHour() -> (hour: Int, count: Int) {
+        var hourCounts = [Int: Int]()
+        for (key, count) in hourlyStats {
+            // key format: yyyy-MM-dd-HH
+            let components = key.split(separator: "-")
+            if components.count == 4, let hour = Int(components[3]) {
+                hourCounts[hour] = (hourCounts[hour] ?? 0) + count
+            }
+        }
+        if let maxEntry = hourCounts.max(by: { $0.value < $1.value }) {
+            return (hour: maxEntry.key, count: maxEntry.value)
+        }
+        return (hour: 0, count: 0)
+    }
+    
+    func getAveragePerHour() -> Int {
+        let activeHours = hourlyStats.filter { $0.value > 0 }
+        guard !activeHours.isEmpty else { return 0 }
+        let total = activeHours.reduce(0) { $0 + $1.value }
+        return total / activeHours.count
+    }
+    
+    func getCurrentStreak() -> Int {
+        let calendar = Calendar.current
+        var currentStreak = 0
+        var checkDate = Date()
+        
+        while true {
+            let key = dateFormatter.string(from: checkDate)
+            if let count = dailyStats[key], count > 0 {
+                currentStreak += 1
+                guard let nextDate = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
+                checkDate = nextDate
+            } else {
+                // If the checkDate is TODAY and count is 0, we don't break yet, 
+                // we check YESTERDAY to see if the streak is still alive.
+                if calendar.isDateInToday(checkDate) {
+                    guard let nextDate = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
+                    checkDate = nextDate
+                    continue
+                }
+                break
+            }
+        }
+        return currentStreak
     }
 }
