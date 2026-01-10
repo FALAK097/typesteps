@@ -6,7 +6,9 @@ class StorageManager: ObservableObject {
     static let shared = StorageManager()
     private let statsKey = "typing_stats_daily"
     private let hourlyKey = "typing_stats_hourly"
+    private let minuteKey = "typing_stats_minute"
     private let appStatsKey = "typing_stats_apps"
+    private let projectStatsKey = "typing_stats_projects"
     private let appBundleMappingKey = "typing_app_bundles" 
     private let notifiedKey = "typing_notified_milestones"
     
@@ -14,8 +16,16 @@ class StorageManager: ObservableObject {
     
     @Published var dailyStats: [String: Int] = [:]
     @Published var hourlyStats: [String: Int] = [:]
+    @Published var minuteStats: [String: Int] = [:] // Last 60 minutes
     @Published var appStats: [String: Int] = [:]
+    @Published var projectStats: [String: Int] = [:]
     @Published var appBundleMapping: [String: String] = [:] 
+    
+    private let minuteFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd-HH-mm"
+        return formatter
+    }()
     
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -40,26 +50,44 @@ class StorageManager: ObservableObject {
         if let hourly = UserDefaults.standard.dictionary(forKey: hourlyKey) as? [String: Int] {
             self.hourlyStats = hourly
         }
+        if let minute = UserDefaults.standard.dictionary(forKey: minuteKey) as? [String: Int] {
+            self.minuteStats = minute
+        }
         if let apps = UserDefaults.standard.dictionary(forKey: appStatsKey) as? [String: Int] {
             self.appStats = apps
+        }
+        if let projects = UserDefaults.standard.dictionary(forKey: projectStatsKey) as? [String: Int] {
+            self.projectStats = projects
         }
         if let mapping = UserDefaults.standard.dictionary(forKey: appBundleMappingKey) as? [String: String] {
             self.appBundleMapping = mapping
         }
     }
     
-    func incrementCount(for date: Date = Date(), appName: String? = nil, bundleId: String? = nil) {
+    func incrementCount(for date: Date = Date(), appName: String? = nil, bundleId: String? = nil, projectName: String? = nil) {
         let dayString = dateFormatter.string(from: date)
         let hourString = hourlyFormatter.string(from: date)
+        let minuteString = minuteFormatter.string(from: date)
         
         dailyStats[dayString] = (dailyStats[dayString] ?? 0) + 1
         hourlyStats[hourString] = (hourlyStats[hourString] ?? 0) + 1
+        minuteStats[minuteString] = (minuteStats[minuteString] ?? 0) + 1
         
         if let appName = appName {
             appStats[appName] = (appStats[appName] ?? 0) + 1
             if let bundleId = bundleId {
                 appBundleMapping[appName] = bundleId
             }
+        }
+        
+        if let projectName = projectName {
+            projectStats[projectName] = (projectStats[projectName] ?? 0) + 1
+        }
+        
+        // Clean up old minute stats (keep last 120 minutes just in case)
+        if minuteStats.count > 120 {
+            let keys = minuteStats.keys.sorted().prefix(minuteStats.count - 120)
+            for key in keys { minuteStats.removeValue(forKey: key) }
         }
         
         checkMilestones(count: dailyStats[dayString] ?? 0, day: dayString)
@@ -102,7 +130,9 @@ class StorageManager: ObservableObject {
     private func saveStats() {
         UserDefaults.standard.set(dailyStats, forKey: statsKey)
         UserDefaults.standard.set(hourlyStats, forKey: hourlyKey)
+        UserDefaults.standard.set(minuteStats, forKey: minuteKey)
         UserDefaults.standard.set(appStats, forKey: appStatsKey)
+        UserDefaults.standard.set(projectStats, forKey: projectStatsKey)
         UserDefaults.standard.set(appBundleMapping, forKey: appBundleMappingKey)
     }
     
@@ -112,6 +142,74 @@ class StorageManager: ObservableObject {
         return appStats.sorted { $0.value > $1.value }
             .prefix(limit)
             .map { (name: $0.key, count: $0.value) }
+    }
+    
+    func getTopProjects(limit: Int = 5) -> [(name: String, count: Int)] {
+        return projectStats.sorted { $0.value > $1.value }
+            .prefix(limit)
+            .map { (name: $0.key, count: $0.value) }
+    }
+    
+    func getPulseData() -> [ActivityPoint] {
+        var points: [ActivityPoint] = []
+        let now = Date()
+        for i in (0..<60).reversed() {
+            if let date = Calendar.current.date(byAdding: .minute, value: -i, to: now) {
+                let key = minuteFormatter.string(from: date)
+                let count = minuteStats[key] ?? 0
+                let label = i % 10 == 0 ? "\(i)m" : ""
+                points.append(ActivityPoint(label: label, count: count))
+            }
+        }
+        return points
+    }
+    
+    func getCurrentKPM() -> Int {
+        let key = minuteFormatter.string(from: Date())
+        return minuteStats[key] ?? 0
+    }
+    
+    func isInFlow() -> Bool {
+        // Flow: typing in at least 10 of the last 15 minutes
+        let now = Date()
+        var activeMinutes = 0
+        for i in 0..<15 {
+            if let date = Calendar.current.date(byAdding: .minute, value: -i, to: now) {
+                let key = minuteFormatter.string(from: date)
+                if (minuteStats[key] ?? 0) > 20 { // More than 20 chars per min
+                    activeMinutes += 1
+                }
+            }
+        }
+        return activeMinutes >= 10
+    }
+    
+    func getLibraryStats() -> [(book: String, pages: Double, progress: Double)] {
+        let total = Double(getTotalAllTime())
+        let milestones = [
+            ("Hello World", 100.0),
+            ("First Script", 1000.0),
+            ("Standard Library", 10000.0),
+            ("Framework Architect", 100000.0),
+            ("Open Source Legend", 1000000.0)
+        ]
+        
+        return milestones.map { name, chars in
+            let progress = min(1.0, total / chars)
+            // Show how many "versions" or "iterations" of this milestone you've done
+            let iterations = total / chars
+            return (name, iterations, progress)
+        }
+    }
+    
+    func getProductivityBadge() -> (label: String, color: Color) {
+        let streak = getCurrentStreak()
+        let todayCount = getCount()
+        
+        if streak >= 30 { return ("UNSTOPPABLE", .red) }
+        if streak >= 7 { return ("CONSISTENT", .orange) }
+        if todayCount >= UserDefaults.standard.integer(forKey: "daily_goal") { return ("GOAL GETTER", .green) }
+        return ("ON THE RISE", .blue)
     }
     
     func getMostActiveDayThisWeek() -> (date: String, count: Int)? {
