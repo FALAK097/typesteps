@@ -16,7 +16,7 @@ class StorageManager: ObservableObject {
     
     @Published var dailyStats: [String: Int] = [:]
     @Published var hourlyStats: [String: Int] = [:]
-    @Published var minuteStats: [String: Int] = [:] // Last 60 minutes
+    @Published var minuteStats: [String: Int] = [:] 
     @Published var appStats: [String: Int] = [:]
     @Published var projectStats: [String: Int] = [:]
     @Published var appBundleMapping: [String: String] = [:] 
@@ -44,24 +44,12 @@ class StorageManager: ObservableObject {
     }
     
     func loadStats() {
-        if let daily = UserDefaults.standard.dictionary(forKey: statsKey) as? [String: Int] {
-            self.dailyStats = daily
-        }
-        if let hourly = UserDefaults.standard.dictionary(forKey: hourlyKey) as? [String: Int] {
-            self.hourlyStats = hourly
-        }
-        if let minute = UserDefaults.standard.dictionary(forKey: minuteKey) as? [String: Int] {
-            self.minuteStats = minute
-        }
-        if let apps = UserDefaults.standard.dictionary(forKey: appStatsKey) as? [String: Int] {
-            self.appStats = apps
-        }
-        if let projects = UserDefaults.standard.dictionary(forKey: projectStatsKey) as? [String: Int] {
-            self.projectStats = projects
-        }
-        if let mapping = UserDefaults.standard.dictionary(forKey: appBundleMappingKey) as? [String: String] {
-            self.appBundleMapping = mapping
-        }
+        if let daily = UserDefaults.standard.dictionary(forKey: statsKey) as? [String: Int] { self.dailyStats = daily }
+        if let hourly = UserDefaults.standard.dictionary(forKey: hourlyKey) as? [String: Int] { self.hourlyStats = hourly }
+        if let minute = UserDefaults.standard.dictionary(forKey: minuteKey) as? [String: Int] { self.minuteStats = minute }
+        if let apps = UserDefaults.standard.dictionary(forKey: appStatsKey) as? [String: Int] { self.appStats = apps }
+        if let projects = UserDefaults.standard.dictionary(forKey: projectStatsKey) as? [String: Int] { self.projectStats = projects }
+        if let mapping = UserDefaults.standard.dictionary(forKey: appBundleMappingKey) as? [String: String] { self.appBundleMapping = mapping }
     }
     
     func incrementCount(for date: Date = Date(), appName: String? = nil, bundleId: String? = nil, projectName: String? = nil) {
@@ -75,16 +63,10 @@ class StorageManager: ObservableObject {
         
         if let appName = appName {
             appStats[appName] = (appStats[appName] ?? 0) + 1
-            if let bundleId = bundleId {
-                appBundleMapping[appName] = bundleId
-            }
+            if let bundleId = bundleId { appBundleMapping[appName] = bundleId }
         }
+        if let projectName = projectName { projectStats[projectName] = (projectStats[projectName] ?? 0) + 1 }
         
-        if let projectName = projectName {
-            projectStats[projectName] = (projectStats[projectName] ?? 0) + 1
-        }
-        
-        // Clean up old minute stats (keep last 120 minutes just in case)
         if minuteStats.count > 120 {
             let keys = minuteStats.keys.sorted().prefix(minuteStats.count - 120)
             for key in keys { minuteStats.removeValue(forKey: key) }
@@ -97,35 +79,29 @@ class StorageManager: ObservableObject {
     private func checkMilestones(count: Int, day: String) {
         let goal = UserDefaults.standard.integer(forKey: "daily_goal")
         guard goal > 0 else { return }
-        
         let milestones = [1.0]
         var notified = UserDefaults.standard.dictionary(forKey: notifiedKey) as? [String: [Double]] ?? [:]
         var dayNotified = notified[day] ?? []
-        
         for m in milestones {
             if Double(count) >= Double(goal) * m && !dayNotified.contains(m) {
-                sendNotification(milestone: Int(m * 100))
+                sendNotification()
                 dayNotified.append(m)
             }
         }
-        
         notified[day] = dayNotified
         UserDefaults.standard.set(notified, forKey: notifiedKey)
     }
     
-    private func sendNotification(milestone: Int) {
+    private func sendNotification() {
         let content = UNMutableNotificationContent()
         content.title = "Goal Reached! 🎯"
         content.body = "Congratulations! You've reached your daily typing goal."
         content.sound = .default
-        
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
     
-    func getCount(for date: Date = Date()) -> Int {
-        return dailyStats[dateFormatter.string(from: date)] ?? 0
-    }
+    func getCount(for date: Date = Date()) -> Int { return dailyStats[dateFormatter.string(from: date)] ?? 0 }
     
     private func saveStats() {
         UserDefaults.standard.set(dailyStats, forKey: statsKey)
@@ -136,21 +112,55 @@ class StorageManager: ObservableObject {
         UserDefaults.standard.set(appBundleMapping, forKey: appBundleMappingKey)
     }
     
-    // MARK: - Aggregation
-    
     func getTopApps(limit: Int = 5) -> [(name: String, count: Int)] {
-        return appStats.sorted { $0.value > $1.value }
-            .prefix(limit)
-            .map { (name: $0.key, count: $0.value) }
+        return appStats.sorted { $0.value > $1.value }.prefix(limit).map { (name: $0.key, count: $0.value) }
+    }
+    
+    private func categorize(appName: String, bundleId: String? = nil) -> AppCategory {
+        let name = appName.lowercased()
+        let bid = bundleId?.lowercased() ?? ""
+        
+        // Code / Development
+        let codeApps = ["xcode", "code", "cursor", "terminal", "ghostty", "warp", "intellij", "pycharm", "webstorm", "sublime", "iterm", "vterm", "neovim", "vim", "emacs", "docker", "postman", "sequel", "tableplus", "gitkraken", "sourcetree", "tower", "github"]
+        let codeBundles = ["com.apple.dt.xcode", "com.visualstudio.code", "com.todesktop.230313m78xv9jbu", "com.googlecode.iterm2", "com.github.atom"]
+        if codeApps.contains(where: { name.contains($0) }) || codeBundles.contains(where: { bid.contains($0) }) { return .code }
+        
+        // Communicate / Social
+        let communicateApps = ["slack", "discord", "telegram", "whatsapp", "teams", "mail", "messages", "zoom", "skype", "wechat", "signal", "outlook"]
+        let communicateBundles = ["com.tinyspeck.slackmacgap", "com.hnc.discord", "org.telegram.desktop", "com.whatsapp.whatsapp"]
+        if communicateApps.contains(where: { name.contains($0) }) || communicateBundles.contains(where: { bid.contains($0) }) { return .communicate }
+        
+        // Create / Design / Writing
+        let createApps = ["figma", "photoshop", "illustrator", "canva", "obsidian", "notion", "linear", "trello", "jira", "craft", "bear", "pages", "keynote", "numbers", "excel", "word", "powerpoint", "blender", "unity", "unreal", "premiere", "final cut", "da vinci"]
+        let createBundles = ["com.figma.Desktop", "com.adobe.Photoshop", "md.obsidian", "notion.id"]
+        if createApps.contains(where: { name.contains($0) }) || createBundles.contains(where: { bid.contains($0) }) { return .create }
+        
+        // Browsing
+        let browsingApps = ["safari", "chrome", "arc", "firefox", "browser", "edge", "opera", "vivaldi", "brave"]
+        let browsingBundles = ["com.apple.safari", "com.google.chrome", "company.thebrowser.browser"]
+        if browsingApps.contains(where: { name.contains($0) }) || browsingBundles.contains(where: { bid.contains($0) }) { return .browsing }
+        
+        // Utility / System
+        let utilityApps = ["settings", "finder", "calculator", "notes", "calendar", "reminders", "dictionary", "activity monitor", "console", "app store", "music", "spotify", "tv", "photos"]
+        if utilityApps.contains(where: { name.contains($0) }) || bid.contains("com.apple.") { return .utility }
+        
+        return .other
+    }
+    
+    func getCategoryStats() -> [(category: AppCategory, count: Int)] {
+        var counts: [AppCategory: Int] = [:]
+        for (appName, count) in appStats {
+            let cat = categorize(appName: appName, bundleId: appBundleMapping[appName])
+            counts[cat] = (counts[cat] ?? 0) + count
+        }
+        return AppCategory.allCases.map { (category: $0, count: counts[$0] ?? 0) }.filter { $0.count > 0 }.sorted { $0.count > $1.count }
     }
     
     func getTopProjects(limit: Int = 5) -> [(name: String, count: Int)] {
-        return projectStats.sorted { $0.value > $1.value }
-            .prefix(limit)
-            .map { (name: $0.key, count: $0.value) }
+        return projectStats.sorted { $0.value > $1.value }.prefix(limit).map { (name: $0.key, count: $0.value) }
     }
     
-    func getLibraryStats() -> [(book: String, pages: Double, progress: Double)] {
+    func getLibraryStats() -> [(milestone: String, iterations: Double, progress: Double)] {
         let total = Double(getTotalAllTime())
         let milestones = [
             ("Keyboard Sprint (100m)", 10000.0),
@@ -160,7 +170,6 @@ class StorageManager: ObservableObject {
             ("Channel Swimmer (English Channel)", 5000000.0),
             ("Grand Tour (Across India)", 50000000.0)
         ]
-        
         return milestones.map { name, chars in
             let progress = min(1.0, total / chars)
             let iterations = total / chars
@@ -168,10 +177,23 @@ class StorageManager: ObservableObject {
         }
     }
     
+    func getNextMilestone() -> (name: String, progress: Double, remaining: Int)? {
+        let total = Double(getTotalAllTime())
+        let milestones = [
+            ("Keyboard Sprint (100m)", 10000.0),
+            ("The Tower (Burj Khalifa)", 50000.0),
+            ("City Explorer (Central Park)", 250000.0),
+            ("Mountain King (Mt. Everest)", 1000000.0),
+            ("Channel Swimmer (English Channel)", 5000000.0),
+            ("Grand Tour (Across India)", 50000000.0)
+        ]
+        for m in milestones { if total < m.1 { return (m.0, total / m.1, Int(m.1 - total)) } }
+        return nil
+    }
+    
     func getProductivityBadge() -> (label: String, color: Color) {
         let streak = getCurrentStreak()
         let todayCount = getCount()
-        
         if streak >= 30 { return ("UNSTOPPABLE", .red) }
         if streak >= 7 { return ("CONSISTENT", .orange) }
         if todayCount >= UserDefaults.standard.integer(forKey: "daily_goal") { return ("GOAL GETTER", .green) }
@@ -182,12 +204,10 @@ class StorageManager: ObservableObject {
         let calendar = Calendar.current
         let now = Date()
         let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
-        
         let weekStats = dailyStats.filter { entry in
             guard let date = dateFormatter.date(from: entry.key) else { return false }
             return date >= startOfWeek
         }
-        
         guard let maxEntry = weekStats.max(by: { $0.value < $1.value }) else { return nil }
         return (date: maxEntry.key, count: maxEntry.value)
     }
@@ -202,7 +222,6 @@ class StorageManager: ObservableObject {
         let calendar = Calendar.current
         let now = Date()
         let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
-        
         return dailyStats.reduce(0) { total, entry in
             guard let date = dateFormatter.date(from: entry.key) else { return total }
             return date >= startOfWeek ? total + entry.value : total
@@ -213,19 +232,15 @@ class StorageManager: ObservableObject {
         let calendar = Calendar.current
         let now = Date()
         let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
-        
         return dailyStats.reduce(0) { total, entry in
             guard let date = dateFormatter.date(from: entry.key) else { return total }
             return date >= startOfMonth ? total + entry.value : total
         }
     }
     
-    // MARK: - Chart Data
-    
     func getTodayHourly() -> [(label: String, count: Int)] {
         let today = dateFormatter.string(from: Date())
         var result: [(label: String, count: Int)] = []
-        
         for hour in 0..<24 {
             let label = String(format: "%02d:00", hour)
             let key = "\(today)-\(String(format: "%02d", hour))"
@@ -237,9 +252,7 @@ class StorageManager: ObservableObject {
     func getLastSevenDays() -> [(label: String, count: Int)] {
         let calendar = Calendar.current
         var result: [(label: String, count: Int)] = []
-        let displayFormatter = DateFormatter()
-        displayFormatter.dateFormat = "E"
-        
+        let displayFormatter = DateFormatter(); displayFormatter.dateFormat = "E"
         for i in (0..<7).reversed() {
             if let date = calendar.date(byAdding: .day, value: -i, to: Date()) {
                 let key = dateFormatter.string(from: date)
@@ -252,21 +265,14 @@ class StorageManager: ObservableObject {
     func getLastSixMonths() -> [(label: String, count: Int)] {
         let calendar = Calendar.current
         var result: [(label: String, count: Int)] = []
-        let displayFormatter = DateFormatter()
-        displayFormatter.dateFormat = "MMM"
-        
+        let displayFormatter = DateFormatter(); displayFormatter.dateFormat = "MMM"
         for i in (0..<6).reversed() {
             if let date = calendar.date(byAdding: .month, value: -i, to: Date()) {
-                let month = calendar.component(.month, from: date)
-                let year = calendar.component(.year, from: date)
-                
+                let month = calendar.component(.month, from: date); let year = calendar.component(.year, from: date)
                 let monthTotal = dailyStats.reduce(0) { total, entry in
                     guard let d = dateFormatter.date(from: entry.key) else { return total }
-                    let entryMonth = calendar.component(.month, from: d)
-                    let entryYear = calendar.component(.year, from: d)
-                    return (entryMonth == month && entryYear == year) ? total + entry.value : total
+                    return (calendar.component(.month, from: d) == month && calendar.component(.year, from: d) == year) ? total + entry.value : total
                 }
-                
                 result.append((label: displayFormatter.string(from: date), count: monthTotal))
             }
         }
@@ -278,37 +284,26 @@ class StorageManager: ObservableObject {
         return (date: best?.key ?? "N/A", count: best?.value ?? 0)
     }
     
-    func getTotalAllTime() -> Int {
-        return dailyStats.values.reduce(0, +)
-    }
+    func getTotalAllTime() -> Int { return dailyStats.values.reduce(0, +) }
     
     func getPeakHour() -> (hour: Int, count: Int) {
         var hourCounts = [Int: Int]()
         for (key, count) in hourlyStats {
-            // key format: yyyy-MM-dd-HH
             let components = key.split(separator: "-")
-            if components.count == 4, let hour = Int(components[3]) {
-                hourCounts[hour] = (hourCounts[hour] ?? 0) + count
-            }
+            if components.count == 4, let hour = Int(components[3]) { hourCounts[hour] = (hourCounts[hour] ?? 0) + count }
         }
-        if let maxEntry = hourCounts.max(by: { $0.value < $1.value }) {
-            return (hour: maxEntry.key, count: maxEntry.value)
-        }
+        if let maxEntry = hourCounts.max(by: { $0.value < $1.value }) { return (hour: maxEntry.key, count: maxEntry.value) }
         return (hour: 0, count: 0)
     }
     
     func getAveragePerHour() -> Int {
         let activeHours = hourlyStats.filter { $0.value > 0 }
         guard !activeHours.isEmpty else { return 0 }
-        let total = activeHours.reduce(0) { $0 + $1.value }
-        return total / activeHours.count
+        return activeHours.reduce(0) { $0 + $1.value } / activeHours.count
     }
     
     func getCurrentStreak() -> Int {
-        let calendar = Calendar.current
-        var currentStreak = 0
-        var checkDate = Date()
-        
+        let calendar = Calendar.current; var currentStreak = 0; var checkDate = Date()
         while true {
             let key = dateFormatter.string(from: checkDate)
             if let count = dailyStats[key], count > 0 {
@@ -316,12 +311,9 @@ class StorageManager: ObservableObject {
                 guard let nextDate = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
                 checkDate = nextDate
             } else {
-                // If the checkDate is TODAY and count is 0, we don't break yet, 
-                // we check YESTERDAY to see if the streak is still alive.
                 if calendar.isDateInToday(checkDate) {
                     guard let nextDate = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
-                    checkDate = nextDate
-                    continue
+                    checkDate = nextDate; continue
                 }
                 break
             }
