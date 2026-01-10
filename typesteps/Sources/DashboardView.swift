@@ -250,22 +250,60 @@ struct DashboardView: View {
                 .padding(.top, -12)
             }
             
+            highlightsSection
+            
             heatmapSection
             
-            Button(action: shareStats) {
-                HStack {
-                    Image(systemName: "square.and.arrow.up")
-                    Text("Share Image Card")
+            topAppsSection
+            
+            HStack(spacing: 12) {
+                Button(action: shareStats) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("Share Card")
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(bgSecondary)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(borderColor, lineWidth: 1))
                 }
-                .font(.system(size: 13, weight: .medium))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(bgSecondary)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(borderColor, lineWidth: 1))
+                .buttonStyle(.plain)
+                
+                Button(action: exportCSV) {
+                    HStack {
+                        Image(systemName: "doc.text")
+                        Text("Export CSV")
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(bgSecondary)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(borderColor, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .frame(maxWidth: 400)
+    }
+    
+    private var highlightsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("WEEKLY HIGHLIGHTS")
+                .font(.system(size: 10, weight: .medium))
+                .kerning(1.5)
+                .foregroundStyle(.secondary)
+            
+            HStack(spacing: 12) {
+                if let mostActive = storage.getMostActiveDayThisWeek() {
+                    HighlightCard(title: "MOST ACTIVE", subtitle: mostActive.date, value: "\(mostActive.count)", icon: "bolt.fill", color: .orange)
+                }
+                
+                if let quietest = storage.getQuietestDay() {
+                    HighlightCard(title: "QUIETEST", subtitle: quietest.date, value: "\(quietest.count)", icon: "leaf.fill", color: .green)
+                }
+            }
+        }
     }
     
     private var heatmapSection: some View {
@@ -298,6 +336,47 @@ struct DashboardView: View {
                 .padding(.vertical, 4)
             }
             .frame(height: 95)
+        }
+    }
+    
+    private var topAppsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("TOP APPLICATIONS")
+                .font(.system(size: 10, weight: .medium))
+                .kerning(1.5)
+                .foregroundStyle(.secondary)
+            
+            let topApps = storage.getTopApps()
+            if topApps.isEmpty {
+                Text("No app data yet")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(topApps, id: \.name) { app in
+                        HStack {
+                            Text(app.name)
+                                .font(.system(size: 13, weight: .medium))
+                            Spacer()
+                            Text("\(app.count)")
+                                .font(.system(size: 13, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                            
+                            let total = storage.getTotalAllTime()
+                            let percentage = total > 0 ? Double(app.count) / Double(total) : 0
+                            
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(borderColor)
+                                    .frame(width: 60, height: 4)
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(accent)
+                                    .frame(width: 60 * percentage, height: 4)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -395,12 +474,30 @@ struct DashboardView: View {
     }
     
     private func shareStats() {
-        let card = ShareCard(count: currentMainCount, label: currentLabel, theme: appTheme)
+        let card = ShareCard(count: currentMainCount, label: currentLabel, theme: appTheme, topApps: storage.getTopApps(limit: 3))
         let renderer = ImageRenderer(content: card)
         renderer.scale = 3.0
         if let image = renderer.nsImage {
             let picker = NSSharingServicePicker(items: [image])
             picker.show(relativeTo: NSRect.zero, of: NSApp.keyWindow?.contentView ?? NSView(), preferredEdge: NSRectEdge.minY)
+        }
+    }
+    
+    private func exportCSV() {
+        var csvString = "Date,Count\n"
+        let sortedKeys = storage.dailyStats.keys.sorted(by: >)
+        for key in sortedKeys {
+            csvString += "\(key),\(storage.dailyStats[key] ?? 0)\n"
+        }
+        
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.commaSeparatedText]
+        savePanel.nameFieldStringValue = "typesteps_export.csv"
+        
+        savePanel.begin { result in
+            if result == .OK, let url = savePanel.url {
+                try? csvString.write(to: url, atomically: true, encoding: .utf8)
+            }
         }
     }
 }
@@ -428,22 +525,67 @@ struct InsightRow: View {
     }
 }
 
+struct HighlightCard: View {
+    let title: String
+    let subtitle: String
+    let value: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(color)
+                Text(title)
+                    .font(.system(size: 8, weight: .black))
+                    .kerning(1)
+                    .foregroundStyle(.secondary)
+            }
+            
+            VStack(alignment: .leading, spacing: 0) {
+                Text(value)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                Text(subtitle)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
 struct ShareCard: View {
     let count: Int
     let label: String
     let theme: Int
+    let topApps: [(name: String, count: Int)]
+    
+    private let accent = Color(red: 99/255, green: 102/255, blue: 241/255)
     
     var body: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 0) {
+            // Header
             HStack(spacing: 12) {
                 Image(systemName: "keyboard")
-                    .font(.title)
-                    .foregroundStyle(Color(red: 99/255, green: 102/255, blue: 241/255))
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(accent)
                 Text("TypeSteps")
-                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .font(.system(size: 20, weight: .black, design: .rounded))
+                Spacer()
+                Text("SNAPSHOT")
+                    .font(.system(size: 10, weight: .bold))
+                    .kerning(2)
+                    .foregroundStyle(.secondary)
             }
+            .padding(.bottom, 40)
             
-            VStack(spacing: 8) {
+            // Main Count
+            VStack(spacing: 4) {
                 Text("\(count)")
                     .font(.system(size: 84, weight: .bold, design: .rounded))
                 Text(label.uppercased())
@@ -451,15 +593,52 @@ struct ShareCard: View {
                     .kerning(3)
                     .foregroundStyle(.secondary)
             }
+            .padding(.bottom, 48)
             
-            Text("falakgala.dev")
-                .font(.system(size: 12, weight: .bold))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.indigo.opacity(0.1))
-                .clipShape(Capsule())
+            // App Breakdown
+            if !topApps.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("TOP APPS")
+                        .font(.system(size: 10, weight: .bold))
+                        .kerning(1.5)
+                        .foregroundStyle(.secondary)
+                    
+                    ForEach(topApps, id: \.name) { app in
+                        HStack {
+                            Text(app.name)
+                                .font(.system(size: 14, weight: .medium))
+                            Spacer()
+                            Text("\(app.count)")
+                                .font(.system(size: 14, design: .monospaced))
+                                .foregroundStyle(accent)
+                        }
+                    }
+                }
+                .padding(.horizontal, 40)
+                .padding(.vertical, 24)
+                .background(accent.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            
+            Spacer()
+            
+            // Footer
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("TRACKED ON MACOS")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.secondary)
+                    Text("falakgala.dev/typesteps")
+                        .font(.system(size: 10, weight: .medium))
+                }
+                Spacer()
+                Image(systemName: "applelogo")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.secondary)
+            }
         }
-        .frame(width: 500, height: 500)
+        .padding(48)
+        .frame(width: 500, height: 600)
         .background(theme == 1 ? Color.white : Color(red: 9/255, green: 9/255, blue: 11/255))
         .foregroundStyle(theme == 1 ? .black : .white)
     }

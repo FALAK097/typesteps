@@ -6,10 +6,12 @@ class StorageManager: ObservableObject {
     static let shared = StorageManager()
     private let statsKey = "typing_stats_daily"
     private let hourlyKey = "typing_stats_hourly"
+    private let appStatsKey = "typing_stats_apps"
     private let notifiedKey = "typing_notified_milestones"
     
     @Published var dailyStats: [String: Int] = [:]
     @Published var hourlyStats: [String: Int] = [:]
+    @Published var appStats: [String: Int] = [:] 
     
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -34,14 +36,21 @@ class StorageManager: ObservableObject {
         if let hourly = UserDefaults.standard.dictionary(forKey: hourlyKey) as? [String: Int] {
             self.hourlyStats = hourly
         }
+        if let apps = UserDefaults.standard.dictionary(forKey: appStatsKey) as? [String: Int] {
+            self.appStats = apps
+        }
     }
     
-    func incrementCount(for date: Date = Date()) {
+    func incrementCount(for date: Date = Date(), appName: String? = nil) {
         let dayString = dateFormatter.string(from: date)
         let hourString = hourlyFormatter.string(from: date)
         
         dailyStats[dayString] = (dailyStats[dayString] ?? 0) + 1
         hourlyStats[hourString] = (hourlyStats[hourString] ?? 0) + 1
+        
+        if let appName = appName {
+            appStats[appName] = (appStats[appName] ?? 0) + 1
+        }
         
         checkMilestones(count: dailyStats[dayString] ?? 0, day: dayString)
         saveStats()
@@ -83,9 +92,36 @@ class StorageManager: ObservableObject {
     private func saveStats() {
         UserDefaults.standard.set(dailyStats, forKey: statsKey)
         UserDefaults.standard.set(hourlyStats, forKey: hourlyKey)
+        UserDefaults.standard.set(appStats, forKey: appStatsKey)
     }
     
     // MARK: - Aggregation
+    
+    func getTopApps(limit: Int = 5) -> [(name: String, count: Int)] {
+        return appStats.sorted { $0.value > $1.value }
+            .prefix(limit)
+            .map { (name: $0.key, count: $0.value) }
+    }
+    
+    func getMostActiveDayThisWeek() -> (date: String, count: Int)? {
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
+        
+        let weekStats = dailyStats.filter { entry in
+            guard let date = dateFormatter.date(from: entry.key) else { return false }
+            return date >= startOfWeek
+        }
+        
+        guard let maxEntry = weekStats.max(by: { $0.value < $1.value }) else { return nil }
+        return (date: maxEntry.key, count: maxEntry.value)
+    }
+    
+    func getQuietestDay() -> (date: String, count: Int)? {
+        guard !dailyStats.isEmpty else { return nil }
+        guard let minEntry = dailyStats.min(by: { $0.value < $1.value }) else { return nil }
+        return (date: minEntry.key, count: minEntry.value)
+    }
     
     func getWeeklyTotal() -> Int {
         let calendar = Calendar.current
