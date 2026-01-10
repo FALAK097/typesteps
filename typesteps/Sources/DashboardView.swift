@@ -332,16 +332,28 @@ struct DashboardView: View {
                 
                 Spacer()
                 
-                if wakaTime.isFetching {
-                    ProgressView().scaleEffect(0.5)
-                } else {
-                    Button {
-                        wakaTime.fetchTodayStats(apiKey: storage.wakaTimeApiKey)
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10))
+                HStack(spacing: 12) {
+                    if !storage.wakaTimeApiKey.isEmpty {
+                        Link(destination: URL(string: "https://wakatime.com/dashboard")!) {
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 10))
+                                .foregroundStyle(accent)
+                        }
+                        .help("Open WakaTime Dashboard")
                     }
-                    .buttonStyle(.plain)
+                    
+                    if wakaTime.isFetching {
+                        ProgressView().scaleEffect(0.5)
+                    } else {
+                        Button {
+                            wakaTime.fetchTodayStats(apiKey: storage.wakaTimeApiKey)
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 10))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Refresh Stats")
+                    }
                 }
             }
             
@@ -351,58 +363,92 @@ struct DashboardView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 } else {
-                    HStack(spacing: 20) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("ACTIVE TIME")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.secondary)
-                            Text(String(format: "%.1f hrs", wakaTime.totalMinutesToday / 60.0))
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                    HStack(spacing: 12) {
+                        // Active Time Card
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "clock.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.blue)
+                                Text("ACTIVE TIME")
+                                    .font(.system(size: 8, weight: .black))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(formatWakaTime(minutes: wakaTime.totalMinutesToday))
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
                         }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.blue.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                         
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("DENSITY")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.secondary)
+                        // Density Card
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "gauge.with.needle.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.purple)
+                                Text("DENSITY")
+                                    .font(.system(size: 8, weight: .black))
+                                    .foregroundStyle(.secondary)
+                            }
                             let density = wakaTime.totalMinutesToday > 0 ? Double(storage.getCount()) / wakaTime.totalMinutesToday : 0
-                            Text(String(format: "%.1f s/m", density))
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                            Text("\(Int(density)) s/m")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
                         }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.purple.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
                 
                 HStack {
                     if isShowingWakaKey {
                         TextField("WakaTime API Key", text: $storage.wakaTimeApiKey)
-                            .textFieldStyle(.roundedBorder)
+                            .textFieldStyle(.plain)
                             .font(.system(size: 10, design: .monospaced))
+                            .padding(4)
+                            .background(bgMain.opacity(0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
                     } else {
-                        Text(storage.wakaTimeApiKey.isEmpty ? "No API Key" : "••••••••••••••••")
+                        Text(storage.wakaTimeApiKey.isEmpty ? "No API Key" : "••••••••••••••••••••••••••••••••")
                             .font(.system(size: 10, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }
                     
                     Spacer()
                     
-                    Button(isShowingWakaKey ? "Save" : "Edit") {
+                    Button(isShowingWakaKey ? "SAVE" : "EDIT") {
                         isShowingWakaKey.toggle()
                         if !isShowingWakaKey {
                             wakaTime.fetchTodayStats(apiKey: storage.wakaTimeApiKey)
                         }
                     }
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 9, weight: .black))
                     .buttonStyle(.plain)
                     .foregroundStyle(accent)
                 }
-                .padding(8)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
                 .background(bgSecondary.opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
         .onAppear {
             if !storage.wakaTimeApiKey.isEmpty {
                 wakaTime.fetchTodayStats(apiKey: storage.wakaTimeApiKey)
             }
+        }
+    }
+    
+    private func formatWakaTime(minutes: Double) -> String {
+        let hrs = Int(minutes) / 60
+        let mins = Int(minutes) % 60
+        if hrs > 0 {
+            return "\(hrs)h \(mins)m"
+        } else {
+            return "\(mins)m"
         }
     }
     
