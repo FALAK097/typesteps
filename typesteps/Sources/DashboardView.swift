@@ -13,22 +13,24 @@ struct AppIconView: View {
     let size: CGFloat
     
     var body: some View {
-        if let bundleId = bundleId,
-           let appUrl = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: appUrl.path))
-                .resizable()
-                .interpolation(.high)
-                .frame(width: size, height: size)
-        } else {
-            Image(systemName: "keyboard")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: size * 0.8, height: size * 0.8)
-                .foregroundStyle(.secondary)
-                .frame(width: size, height: size)
-                .background(Color.secondary.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+        Group {
+            if let bundleId = bundleId,
+               let appUrl = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: appUrl.path))
+                    .resizable()
+                    .interpolation(.high)
+            } else {
+                Image(systemName: "keyboard")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .padding(size * 0.2)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .frame(width: size, height: size)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.25))
+        .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
     }
 }
 
@@ -89,18 +91,46 @@ struct DashboardView: View {
     
     private var header: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 12) {
                 Text("TypeSteps")
                     .font(.system(size: 14, weight: .semibold))
                 
                 Spacer()
+                
+                // Action Buttons in Header
+                HStack(spacing: 8) {
+                    Button(action: shareStats) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .background(bgSecondary)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(borderColor, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Share Card")
+                    
+                    Button(action: exportCSV) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .background(bgSecondary)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(borderColor, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Export CSV")
+                }
+                .padding(.trailing, 8)
                 
                 // Theme Toggle
                 Button {
                     appTheme = (appTheme + 1) % 3
                 } label: {
                     Image(systemName: themeIcon)
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .frame(width: 28, height: 28)
                         .background(bgSecondary)
@@ -136,93 +166,98 @@ struct DashboardView: View {
     }
     
     private var leftColumn: some View {
-        VStack(alignment: .leading, spacing: 32) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .lastTextBaseline) {
-                    Text(currentLabel.uppercased())
-                        .font(.system(size: 10, weight: .medium))
-                        .kerning(1.5)
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 48) {
+            VStack(alignment: .leading, spacing: 32) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .lastTextBaseline) {
+                        Text(currentLabel.uppercased())
+                            .font(.system(size: 10, weight: .medium))
+                            .kerning(1.5)
+                            .foregroundStyle(.secondary)
+                        
+                        Spacer()
+                        
+                        Text(dateSubtitle)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
                     
-                    Spacer()
-                    
-                    Text(dateSubtitle)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
+                    HStack(alignment: .bottom) {
+                        Text("\(currentMainCount)")
+                            .font(.system(size: 56, weight: .bold))
+                            .contentTransition(.numericText())
+                        
+                        if selectedTab == 0 {
+                            Spacer()
+                            goalProgressCircle
+                        }
+                    }
                 }
                 
-                HStack(alignment: .bottom) {
-                    Text("\(currentMainCount)")
-                        .font(.system(size: 56, weight: .bold))
-                        .contentTransition(.numericText())
-                    
-                    if selectedTab == 0 {
-                        Spacer()
-                        goalProgressCircle
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Text("ACTIVITY TREND")
+                            .font(.system(size: 10, weight: .medium))
+                            .kerning(1.5)
+                            .foregroundStyle(.secondary)
+                        
+                        if let selectedValue = selectedPointValue {
+                            Spacer()
+                            Text("\(selectedValue) letters")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(accent)
+                        }
                     }
+                    
+                    Chart {
+                        ForEach(chartData) { point in
+                            if selectedTab == 0 {
+                                AreaMark(x: .value("T", point.label), y: .value("C", point.count))
+                                    .interpolationMethod(.monotone)
+                                    .foregroundStyle(accent.opacity(0.1).gradient)
+                                LineMark(x: .value("T", point.label), y: .value("C", point.count))
+                                    .interpolationMethod(.monotone)
+                                    .foregroundStyle(accent)
+                            } else {
+                                BarMark(x: .value("L", point.label), y: .value("C", point.count))
+                                    .foregroundStyle(accent.gradient)
+                                    .cornerRadius(2)
+                            }
+                        }
+                        
+                        if let rawSelectedDate {
+                            RuleMark(x: .value("Selected", rawSelectedDate))
+                                .foregroundStyle(Color.secondary.opacity(0.3))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
+                        }
+                    }
+                    .frame(height: 200)
+                    .chartYAxis {
+                        AxisMarks(position: .leading) {
+                            AxisGridLine().foregroundStyle(borderColor)
+                            AxisValueLabel().font(.system(size: 9))
+                        }
+                    }
+                    .chartXAxis {
+                        // Fixed: Using explicit string matching for hourly labels
+                        if selectedTab == 0 {
+                            AxisMarks(values: ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]) { value in
+                                AxisGridLine().foregroundStyle(borderColor)
+                                AxisValueLabel().font(.system(size: 9))
+                            }
+                        } else {
+                            AxisMarks {
+                                AxisGridLine().foregroundStyle(borderColor)
+                                AxisValueLabel().font(.system(size: 9))
+                            }
+                        }
+                    }
+                    .chartXSelection(value: $rawSelectedDate)
                 }
             }
             
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text("ACTIVITY TREND")
-                        .font(.system(size: 10, weight: .medium))
-                        .kerning(1.5)
-                        .foregroundStyle(.secondary)
-                    
-                    if let selectedValue = selectedPointValue {
-                        Spacer()
-                        Text("\(selectedValue) letters")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(accent)
-                    }
-                }
-                
-                Chart {
-                    ForEach(chartData) { point in
-                        if selectedTab == 0 {
-                            AreaMark(x: .value("T", point.label), y: .value("C", point.count))
-                                .interpolationMethod(.monotone)
-                                .foregroundStyle(accent.opacity(0.1).gradient)
-                            LineMark(x: .value("T", point.label), y: .value("C", point.count))
-                                .interpolationMethod(.monotone)
-                                .foregroundStyle(accent)
-                        } else {
-                            BarMark(x: .value("L", point.label), y: .value("C", point.count))
-                                .foregroundStyle(accent.gradient)
-                                .cornerRadius(2)
-                        }
-                    }
-                    
-                    if let rawSelectedDate {
-                        RuleMark(x: .value("Selected", rawSelectedDate))
-                            .foregroundStyle(Color.secondary.opacity(0.3))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
-                    }
-                }
-                .frame(height: 200)
-                .chartYAxis {
-                    AxisMarks(position: .leading) {
-                        AxisGridLine().foregroundStyle(borderColor)
-                        AxisValueLabel().font(.system(size: 9))
-                    }
-                }
-                .chartXAxis {
-                    // Fixed: Using explicit string matching for hourly labels
-                    if selectedTab == 0 {
-                        AxisMarks(values: ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]) { value in
-                            AxisGridLine().foregroundStyle(borderColor)
-                            AxisValueLabel().font(.system(size: 9))
-                        }
-                    } else {
-                        AxisMarks {
-                            AxisGridLine().foregroundStyle(borderColor)
-                            AxisValueLabel().font(.system(size: 9))
-                        }
-                    }
-                }
-                .chartXSelection(value: $rawSelectedDate)
-            }
+            heatmapSection
+            topAppsSection
         }
     }
     
@@ -279,40 +314,8 @@ struct DashboardView: View {
             }
             
             highlightsSection
-            
-            heatmapSection
-            
-            topAppsSection
-            
-            HStack(spacing: 12) {
-                Button(action: shareStats) {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("Share Card")
-                    }
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(bgSecondary)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(borderColor, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                
-                Button(action: exportCSV) {
-                    HStack {
-                        Image(systemName: "doc.text")
-                        Text("Export CSV")
-                    }
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(bgSecondary)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(borderColor, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-            }
         }
-        .frame(maxWidth: 400)
+        .frame(maxWidth: 350)
     }
     
     private var highlightsSection: some View {
