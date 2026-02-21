@@ -1,0 +1,61 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*" # Trigger on any tag starting with "v" (like v1.0.0)
+
+permissions:
+  contents: write # Needed to create a GitHub Release
+
+jobs:
+  build_and_release:
+    name: Build app and publish release
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build App with Xcode
+        run: |
+          xcodebuild clean build \
+            -project typesteps.xcodeproj \
+            -scheme typesteps \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
+            SYMROOT=$(pwd)/build
+
+      - name: Zip the built App
+        run: |
+          cd build/Release
+          zip -r typesteps.zip typesteps.app
+
+      - name: Calculate SHA256 Checksum
+        id: shasum
+        run: |
+          cd build/Release
+          echo "sha=$(shasum -a 256 typesteps.zip | awk '{ print $1 }')" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/Release/typesteps.zip
+          draft: false
+          prerelease: false
+          body: |
+            ## Automated Release for TypeSteps
+
+            **SHA256 Checksum:**
+            `${{ steps.shasum.outputs.sha }}`
+
+            _To update your Homebrew Tap:_
+            1. Copy the SHA256 checksum above.
+            2. Open your `homebrew-typesteps` repo.
+            3. Edit the `Casks/typesteps.rb` file.
+            4. Update the `version` to match this tag.
+            5. Paste the new SHA checksum and commit the changes!
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
