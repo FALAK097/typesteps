@@ -19,10 +19,26 @@ TypeSteps is a privacy-focused macOS application that passively tracks the numbe
 
 ## Installation
 
+### Option 1: Homebrew (Recommended)
+
+1. Add the custom tap to Homebrew:
+
+   ```bash
+   brew tap FALAK097/typesteps
+   ```
+
+2. Install the app:
+
+   ```bash
+   brew install --cask typesteps
+   ```
+
+### Option 2: Build from Source
+
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/typesteps.git
+   git clone https://github.com/FALAK097/typesteps.git
    ```
 
 2. Open `typesteps.xcodeproj` in Xcode (requires Xcode 16+ or compatible versions).
