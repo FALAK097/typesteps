@@ -320,4 +320,86 @@ class StorageManager: ObservableObject {
         }
         return currentStreak
     }
+    
+    func exportData() -> Data? {
+        let notified = UserDefaults.standard.dictionary(forKey: notifiedKey) as? [String: [Double]] ?? [:]
+        let goal = UserDefaults.standard.integer(forKey: "daily_goal")
+        
+        let backup = BackupData(
+            dailyStats: dailyStats,
+            hourlyStats: hourlyStats,
+            minuteStats: minuteStats,
+            appStats: appStats,
+            projectStats: projectStats,
+            appBundleMapping: appBundleMapping,
+            notifiedMilestones: notified,
+            wakaTimeApiKey: wakaTimeApiKey,
+            dailyGoal: goal
+        )
+        
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        return try? encoder.encode(backup)
+    }
+    
+    func importData(from data: Data) -> Bool {
+        guard let backup = try? JSONDecoder().decode(BackupData.self, from: data) else { return false }
+        
+        DispatchQueue.main.async {
+            self.dailyStats = backup.dailyStats
+            self.hourlyStats = backup.hourlyStats
+            self.minuteStats = backup.minuteStats
+            self.appStats = backup.appStats
+            self.projectStats = backup.projectStats
+            self.appBundleMapping = backup.appBundleMapping
+            self.wakaTimeApiKey = backup.wakaTimeApiKey
+            
+            UserDefaults.standard.set(backup.dailyGoal, forKey: "daily_goal")
+            UserDefaults.standard.set(backup.notifiedMilestones, forKey: self.notifiedKey)
+            
+            self.saveStats()
+        }
+        return true
+    }
+    
+    func resetStats() {
+        dailyStats = [:]
+        hourlyStats = [:]
+        minuteStats = [:]
+        appStats = [:]
+        projectStats = [:]
+        appBundleMapping = [:]
+        // We generally keep the API key and Goal, but for a "hard reset" we might want to clear them or keep them?
+        // Usually data reset implies stats. Let's keep settings like API key and Goal to be safe, or ask?
+        // The user said "erase the data". I'll erase stats but maybe keep the key/goal to avoid re-entry annoyance, 
+        // OR just wipe everything. "erase the data" usually means start fresh.
+        // I'll wipe stats.
+        
+        UserDefaults.standard.removeObject(forKey: statsKey)
+        UserDefaults.standard.removeObject(forKey: hourlyKey)
+        UserDefaults.standard.removeObject(forKey: minuteKey)
+        UserDefaults.standard.removeObject(forKey: appStatsKey)
+        UserDefaults.standard.removeObject(forKey: projectStatsKey)
+        UserDefaults.standard.removeObject(forKey: appBundleMappingKey)
+        UserDefaults.standard.removeObject(forKey: notifiedKey)
+        
+        // Optional: Keep settings?
+        // UserDefaults.standard.removeObject(forKey: "wakatime_api_key")
+        // UserDefaults.standard.removeObject(forKey: "daily_goal")
+        
+        saveStats()
+    }
 }
+
+struct BackupData: Codable {
+    let dailyStats: [String: Int]
+    let hourlyStats: [String: Int]
+    let minuteStats: [String: Int]
+    let appStats: [String: Int]
+    let projectStats: [String: Int]
+    let appBundleMapping: [String: String]
+    let notifiedMilestones: [String: [Double]]
+    let wakaTimeApiKey: String
+    let dailyGoal: Int
+}
+

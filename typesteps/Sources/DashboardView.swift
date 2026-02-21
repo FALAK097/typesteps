@@ -43,6 +43,13 @@ struct DashboardView: View {
     @State private var hoveredDay: String?
     @State private var hoveredCount: Int?
     
+    @State private var showDataOptions = false
+    
+    @State private var alertTitle = ""
+    @State private var alertMessage = ""
+    @State private var showAlert = false
+    @State private var alertAction: (() -> Void)?
+    
     private var theme: AppTheme { AppTheme.themes.first { $0.id == appThemeId } ?? AppTheme.themes[0] }
     private var accent: Color { theme.accent }
     
@@ -80,6 +87,16 @@ struct DashboardView: View {
             .colorScheme(lightThemeIds.contains(theme.id) ? .light : .dark)
         }
         .tint(accent)
+        .alert(alertTitle, isPresented: $showAlert) {
+            if let action = alertAction {
+                Button("Cancel", role: .cancel) { alertAction = nil }
+                Button("Reset", role: .destructive) { action(); alertAction = nil }
+            } else {
+                Button("OK", role: .cancel) { }
+            }
+        } message: {
+            Text(alertMessage)
+        }
     }
     
     private var header: some View {
@@ -96,8 +113,21 @@ struct DashboardView: View {
                 HStack(spacing: 8) {
                     Button(action: shareStats) { Image(systemName: "square.and.arrow.up").font(.system(size: 11)).foregroundStyle(secondaryTextColor).frame(width: 28, height: 28).background(bgSecondary).clipShape(Circle()).overlay(Circle().stroke(borderColor, lineWidth: 1)) }
                         .buttonStyle(.plain).onHover { h in hoveredAction = h ? "SHARE SNAPSHOT" : nil }
-                    Button(action: exportCSV) { Image(systemName: "doc.text").font(.system(size: 11)).foregroundStyle(secondaryTextColor).frame(width: 28, height: 28).background(bgSecondary).clipShape(Circle()).overlay(Circle().stroke(borderColor, lineWidth: 1)) }
-                        .buttonStyle(.plain).onHover { h in hoveredAction = h ? "EXPORT CSV" : nil }
+                    Button { showDataOptions.toggle() } label: {
+                        Image(systemName: "doc.text").font(.system(size: 11)).foregroundStyle(secondaryTextColor).frame(width: 28, height: 28).background(bgSecondary).clipShape(Circle()).overlay(Circle().stroke(borderColor, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showDataOptions, arrowEdge: .bottom) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HoverButton(title: "Backup Data", icon: "arrow.down.doc", action: { showDataOptions = false; exportJSON() })
+                            HoverButton(title: "Restore Data", icon: "arrow.up.doc", action: { showDataOptions = false; importJSON() })
+                            Divider().padding(.vertical, 4)
+                            HoverButton(title: "Reset Data", icon: "trash", color: .red, action: { showDataOptions = false; confirmReset() })
+                        }
+                        .padding(8)
+                        .background(bgMain)
+                    }
+                    .onHover { h in hoveredAction = h ? "DATA OPTIONS" : nil }
                 }.padding(.trailing, 8)
                 
                 Picker("", selection: $selectedTab) { Text("Day").tag(0); Text("Week").tag(1); Text("Month").tag(2) }
@@ -283,21 +313,24 @@ struct DashboardView: View {
     private var topAppsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("TOP APPLICATIONS").font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(secondaryTextColor)
-            let topApps = storage.getTopApps()
+            let topApps = storage.getTopApps(limit: 100)
             if topApps.isEmpty { Text("No app data yet").font(.system(size: 12)).foregroundStyle(secondaryTextColor) }
             else {
-                VStack(spacing: 8) {
-                    ForEach(topApps, id: \.name) { app in
-                        HStack(spacing: 12) {
-                            AppIconView(bundleId: storage.appBundleMapping[app.name], size: 28, borderColor: borderColor)
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack { Text(app.name).font(.system(size: 12, weight: .bold)); Spacer(); Text("\(app.count)").font(.system(size: 11, design: .monospaced)).foregroundStyle(secondaryTextColor) }
-                                let total = storage.appStats.values.reduce(0, +); let percentage = total > 0 ? Double(app.count) / Double(total) : 0
-                                GeometryReader { barGeo in ZStack(alignment: .leading) { Capsule().fill(borderColor).frame(height: 4); Capsule().fill(accent.gradient).frame(width: barGeo.size.width * percentage, height: 4) } }.frame(height: 4)
-                            }
-                        }.padding(10).background(bgSecondary.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).stroke(borderColor.opacity(0.5), lineWidth: 0.5))
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 8) {
+                        ForEach(topApps, id: \.name) { app in
+                            HStack(spacing: 12) {
+                                AppIconView(bundleId: storage.appBundleMapping[app.name], size: 28, borderColor: borderColor)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack { Text(app.name).font(.system(size: 12, weight: .bold)); Spacer(); Text("\(app.count)").font(.system(size: 11, design: .monospaced)).foregroundStyle(secondaryTextColor) }
+                                    let total = storage.appStats.values.reduce(0, +); let percentage = total > 0 ? Double(app.count) / Double(total) : 0
+                                    GeometryReader { barGeo in ZStack(alignment: .leading) { Capsule().fill(borderColor).frame(height: 4); Capsule().fill(accent.gradient).frame(width: barGeo.size.width * percentage, height: 4) } }.frame(height: 4)
+                                }
+                            }.padding(10).background(bgSecondary.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).stroke(borderColor.opacity(0.5), lineWidth: 0.5))
+                        }
                     }
                 }
+                .frame(maxHeight: 500)
             }
         }
     }
@@ -343,10 +376,76 @@ struct DashboardView: View {
         if let image = renderer.nsImage { let picker = NSSharingServicePicker(items: [image]); picker.show(relativeTo: NSRect.zero, of: NSApp.keyWindow?.contentView ?? NSView(), preferredEdge: NSRectEdge.minY) }
     }
     
-    private func exportCSV() {
-        var csvString = "Date,Count\n"; let sortedKeys = storage.dailyStats.keys.sorted(by: >); for key in sortedKeys { csvString += "\(key),\(storage.dailyStats[key] ?? 0)\n" }
-        let savePanel = NSSavePanel(); savePanel.allowedContentTypes = [.commaSeparatedText]; savePanel.nameFieldStringValue = "typesteps_export.csv"
-        savePanel.begin { result in if result == .OK, let url = savePanel.url { try? csvString.write(to: url, atomically: true, encoding: .utf8) } }
+    private func exportJSON() {
+        guard let data = storage.exportData() else {
+            alertTitle = "Export Failed"; alertMessage = "Could not generate backup data."; showAlert = true
+            return
+        }
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "typesteps_backup.json"
+        savePanel.begin { result in
+            if result == .OK, let url = savePanel.url {
+                do {
+                    try data.write(to: url)
+                    alertTitle = "Backup Successful"; alertMessage = "Your data has been safely saved."; showAlert = true
+                } catch {
+                    alertTitle = "Export Failed"; alertMessage = error.localizedDescription; showAlert = true
+                }
+            }
+        }
+    }
+
+    private func importJSON() {
+        let openPanel = NSOpenPanel()
+        openPanel.allowedContentTypes = [.json]
+        openPanel.begin { result in
+            if result == .OK, let url = openPanel.url {
+                do {
+                    let data = try Data(contentsOf: url)
+                    if storage.importData(from: data) {
+                        alertTitle = "Restore Successful"; alertMessage = "Your data has been restored."; alertAction = nil; showAlert = true
+                    } else {
+                        alertTitle = "Restore Failed"; alertMessage = "The file format was invalid."; alertAction = nil; showAlert = true
+                    }
+                } catch {
+                    alertTitle = "Restore Failed"; alertMessage = error.localizedDescription; alertAction = nil; showAlert = true
+                }
+            }
+        }
+    }
+    
+    private func confirmReset() {
+        alertTitle = "Reset Data?"
+        alertMessage = "This will permanently erase all your tracking statistics. This action cannot be undone."
+        alertAction = { storage.resetStats() }
+        showAlert = true
+    }
+}
+
+struct HoverButton: View {
+    let title: String
+    let icon: String
+    var color: Color = .primary
+    let action: () -> Void
+    @State private var isHovering = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).font(.system(size: 12))
+                Text(title).font(.system(size: 12))
+                Spacer()
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(isHovering ? Color.secondary.opacity(0.1) : Color.clear)
+            .cornerRadius(6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(color)
+        .onHover { isHovering = $0 }
     }
 }
 
