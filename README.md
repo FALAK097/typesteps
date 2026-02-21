@@ -1,0 +1,33 @@
+# TypeSteps
+
+TypeSteps is a privacy-focused macOS application that passively tracks the number of characters you type each day system-wide. Think of it as a step counter—but for your keyboard!
+
+## Features
+
+- **System-Wide Keystroke Counting:** Runs quietly in the background, counting letters typed across all apps.
+- **Privacy First:** Never records or stores actual typed characters. It only increments a numeric counter, which is saved locally on your device.
+- **Historical Insights:** View your typing metrics with daily, weekly, and monthly stats.
+- **Menu Bar Integration:** A lightweight presence in your menu bar.
+- **WakaTime Sync (Optional):** Link your WakaTime API key to see more developer metrics.
+
+## Requirements
+
+- macOS 13+
+- Apple Silicon or Intel Mac
+
+## Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/yourusername/typesteps.git
+   ```
+
+2. Open `typesteps.xcodeproj` in Xcode (requires Xcode 16+ or compatible versions).
+3. Build and Run.
+
+**Note:** As TypeSteps uses macOS Accessibility APIs to listen to keystrokes on a system level, you must grant Accessibility permissions in **System Settings > Privacy & Security > Accessibility** upon its first launch.
+
+## Data Storage
+
+All data is stored purely locally on your machine using `UserDefaults` and/or CoreData equivalent. Characters are never transmitted over the internet (unless you opt-in to fetch developer stats via the WakaTime API).
