@@ -3,6 +3,8 @@ import UserNotifications
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // ALWAYS check permissions to trigger the macOS prompt if it's not authorized
+        KeystrokeListener.shared.checkPermissions()
         KeystrokeListener.shared.startListening()
         
         // This keeps the app running as a background utility (no Dock icon)
