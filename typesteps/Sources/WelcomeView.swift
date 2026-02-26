@@ -58,10 +58,6 @@ struct WelcomeView: View {
             Text("Welcome to TypeSteps")
                 .font(.title.bold())
                 .foregroundColor(theme.text)
-            
-            Text("Track your typing activity with precision")
-                .font(.subheadline)
-                .foregroundColor(theme.secondaryText)
         }
         .padding(.top, 40)
     }
@@ -79,16 +75,13 @@ struct WelcomeView: View {
     }
     
     private var accessibilityStepView: some View {
-        VStack(spacing: 20) {
-            Text("Accessibility Permission Required")
-                .font(.headline.bold())
-                .foregroundColor(theme.text)
-            
-            Text("TypeSteps needs Accessibility permission to track your typing activity across all applications. This allows the app to detect which keys you type and in which apps.")
-                .font(.subheadline)
+        VStack(spacing: 24) {
+            Text("To track your typing activity accurately, TypeSteps requires Accessibility permission.")
+                .font(.body)
                 .foregroundColor(theme.secondaryText)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
+                .padding(.horizontal, 10)
             
             VStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .center, spacing: 16) {
@@ -145,16 +138,13 @@ struct WelcomeView: View {
     }
     
     private var loginItemStepView: some View {
-        VStack(spacing: 20) {
-            Text("Start Automatically on Login")
-                .font(.headline.bold())
-                .foregroundColor(theme.text)
-            
-            Text("Enable \"Open at Login\" to automatically start TypeSteps when you turn on your Mac each day. This way you'll never miss tracking your typing activity.")
-                .font(.subheadline)
+        VStack(spacing: 24) {
+            Text("Start TypeSteps automatically when you turn on your Mac, so you never miss tracking your activity.")
+                .font(.body)
                 .foregroundColor(theme.secondaryText)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
+                .padding(.horizontal, 10)
             
             VStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .center, spacing: 16) {
