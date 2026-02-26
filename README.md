@@ -1,12 +1,14 @@
 # TypeSteps
 
+![Homebrew Downloads](https://img.shields.io/homebrew/cask-downloads/typesteps)
+
 TypeSteps is a privacy-focused macOS application that passively tracks the number of characters you type each day system-wide. Think of it as a step counter—but for your keyboard!
 
 <img width="1913" height="1314" alt="image" src="https://github.com/user-attachments/assets/acdebf0f-9b74-428c-af20-4582368264a7" />
 
 ## Features
 
-- **System-Wide Keystroke Counting:** Runs quietly in the background, counting letters typed across all apps.
+- **System-Wide Keystroke Counting:** Runs quietly in the background, counting letters, numbers, punctuation, and whitespace typed across all apps. Does not track modifier keys alone (Shift, Ctrl, Cmd, Option), function keys, or keyboard shortcuts.
 - **Privacy First:** Never records or stores actual typed characters. It only increments a numeric counter, which is saved locally on your device.
 - **Historical Insights:** View your typing metrics with daily, weekly, and monthly stats.
 - **Menu Bar Integration:** A lightweight presence in your menu bar.

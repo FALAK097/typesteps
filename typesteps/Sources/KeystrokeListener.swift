@@ -8,6 +8,7 @@ class KeystrokeListener: ObservableObject {
     @Published var isAuthorized: Bool = false
     @Published var isPaused: Bool = false
     private var eventMonitor: Any?
+    private var permissionCheckTimer: Timer?
     
     init() {}
     
@@ -17,6 +18,14 @@ class KeystrokeListener: ObservableObject {
         DispatchQueue.main.async {
             self.isAuthorized = trusted
         }
+    }
+    
+    func checkPermissionsSilently() -> Bool {
+        let trusted = AXIsProcessTrusted()
+        DispatchQueue.main.async {
+            self.isAuthorized = trusted
+        }
+        return trusted
     }
     
     func startListening() {
@@ -44,7 +53,7 @@ class KeystrokeListener: ObservableObject {
         
         guard let characters = event.charactersIgnoringModifiers else { return }
         for char in characters {
-            if char.isLetter || char.isNumber {
+            if char.isLetter || char.isNumber || char.isPunctuation || char.isWhitespace {
                 DispatchQueue.main.async {
                     StorageManager.shared.incrementCount(appName: appName, bundleId: bundleId, projectName: projectName)
                 }

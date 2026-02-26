@@ -37,13 +37,16 @@ struct DashboardView: View {
     @AppStorage("app_theme_id") private var appThemeId = 0 
     @AppStorage("daily_goal") private var dailyGoal = 5000 
     
-    @State private var isShowingWakaKey = false
-    @State private var hoveredAction: String?
-    @State private var rawSelectedDate: String?
-    @State private var hoveredDay: String?
-    @State private var hoveredCount: Int?
-    
-    @State private var showDataOptions = false
+     @State private var isShowingWakaKey = false
+     @State private var showWakaInfo = false
+     @State private var hoveredAction: String?
+     @State private var rawSelectedDate: String?
+     @State private var hoveredDay: String?
+     @State private var hoveredCount: Int?
+     @State private var showThemePicker = false
+     @State private var hoveredThemeId: Int? = nil
+     
+     @State private var showDataOptions = false
     
     @State private var alertTitle = ""
     @State private var alertMessage = ""
@@ -51,13 +54,19 @@ struct DashboardView: View {
     @State private var alertAction: (() -> Void)?
     
     private var theme: AppTheme { AppTheme.themes.first { $0.id == appThemeId } ?? AppTheme.themes[0] }
-    private var accent: Color { theme.accent }
-    
-    private var bgMain: Color { theme.mainBg }
-    private var bgSecondary: Color { theme.secondaryBg }
-    private var borderColor: Color { theme.border }
-    private var textColor: Color { theme.text }
-    private var secondaryTextColor: Color { theme.secondaryText }
+    private var previewTheme: AppTheme {
+        if let hovered = hoveredThemeId {
+            return AppTheme.themes.first { $0.id == hovered } ?? theme
+        }
+        return theme
+    }
+     private var accent: Color { previewTheme.accent }
+     
+     private var bgMain: Color { previewTheme.mainBg }
+     private var bgSecondary: Color { previewTheme.secondaryBg }
+     private var borderColor: Color { previewTheme.border }
+     private var textColor: Color { previewTheme.text }
+     private var secondaryTextColor: Color { previewTheme.secondaryText }
     
     private let lightThemeIds = [0, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23]
     
@@ -82,12 +91,13 @@ struct DashboardView: View {
                         .padding(geo.size.width > 900 ? 40 : 24)
                     }
                 }
-            }
-            .foregroundStyle(textColor)
-            .colorScheme(lightThemeIds.contains(theme.id) ? .light : .dark)
-        }
-        .tint(accent)
-        .alert(alertTitle, isPresented: $showAlert) {
+             }
+             .foregroundStyle(textColor)
+             .colorScheme(lightThemeIds.contains(theme.id) ? .light : .dark)
+             .animation(.easeOut(duration: 0.15), value: previewTheme.id)
+         }
+         .tint(accent)
+         .alert(alertTitle, isPresented: $showAlert) {
             if let action = alertAction {
                 Button("Cancel", role: .cancel) { alertAction = nil }
                 Button("Reset", role: .destructive) { action(); alertAction = nil }
@@ -132,54 +142,145 @@ struct DashboardView: View {
                 
                 Picker("", selection: $selectedTab) { Text("Day").tag(0); Text("Week").tag(1); Text("Month").tag(2) }
                     .pickerStyle(.segmented)
-                    .frame(width: 160)
-                    .background(bgSecondary.opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .scaleEffect(0.9)
+                    .frame(width: 200)
                     .onHover { h in hoveredAction = h ? "SWITCH VIEW" : nil }
             }
-            .padding(.horizontal, 24).padding(.vertical, 12).animation(.easeInOut(duration: 0.2), value: hoveredAction)
-            Divider().background(borderColor).opacity(0.5)
-        }
-    }
-
-    private var themeSelector: some View {
-        Menu {
-            Section("Light Themes") {
-                ForEach(AppTheme.themes.filter { lightThemeIds.contains($0.id) }) { t in
-                    Button { appThemeId = t.id } label: {
-                        HStack {
-                            Text(t.name)
-                            if appThemeId == t.id { Image(systemName: "checkmark") }
-                        }
-                    }
-                }
-            }
-            Section("Dark Themes") {
-                ForEach(AppTheme.themes.filter { !lightThemeIds.contains($0.id) }) { t in
-                    Button { appThemeId = t.id } label: {
-                        HStack {
-                            Text(t.name)
-                            if appThemeId == t.id { Image(systemName: "checkmark") }
-                        }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Circle().fill(accent).frame(width: 8, height: 8)
-                Text(theme.name).font(.system(size: 10, weight: .bold))
-            }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(bgSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(borderColor, lineWidth: 1))
-        }
-        .menuStyle(.borderlessButton)
-        .frame(width: 120)
-        .onHover { h in hoveredAction = h ? "CHANGE THEME" : nil }
-        .padding(.trailing, 8)
-    }
+     .padding(.horizontal, 24).padding(.vertical, 12).animation(.easeInOut(duration: 0.2), value: hoveredAction)
+             Divider().background(borderColor).opacity(0.5)
+         }
+     }
+     
+     private var themeSelector: some View {
+         Button {
+             showThemePicker.toggle()
+         } label: {
+             HStack(spacing: 8) {
+                 Circle().fill(previewTheme.accent).frame(width: 8, height: 8)
+                 Text(previewTheme.name).font(.system(size: 10, weight: .bold))
+             }
+             .padding(.horizontal, 12).padding(.vertical, 8)
+             .frame(width: 120, alignment: .center)
+             .background(previewTheme.secondaryBg)
+             .clipShape(RoundedRectangle(cornerRadius: 8))
+             .overlay(RoundedRectangle(cornerRadius: 8).stroke(previewTheme.border, lineWidth: 1))
+         }
+         .buttonStyle(.plain)
+         .onHover { h in hoveredAction = h ? "CHANGE THEME" : nil }
+         .padding(.trailing, 8)
+         .popover(isPresented: $showThemePicker, arrowEdge: .top) {
+             themePickerPopover
+         }
+     }
+     
+     private var themePickerPopover: some View {
+         ZStack {
+             bgMain.ignoresSafeArea()
+             
+             VStack(alignment: .leading, spacing: 16) {
+                 Text("THEME")
+                     .font(.system(size: 10, weight: .medium))
+                     .kerning(1.5)
+                     .foregroundStyle(secondaryTextColor)
+                 
+                 VStack(alignment: .leading, spacing: 12) {
+                     Text("Light")
+                         .font(.system(size: 9, weight: .medium))
+                         .kerning(0.8)
+                         .foregroundStyle(secondaryTextColor)
+                         .padding(.leading, 4)
+                     
+                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                         ForEach(AppTheme.themes.filter { lightThemeIds.contains($0.id) }) { t in
+                             themeOption(t)
+                         }
+                     }
+                 }
+                 
+                 VStack(alignment: .leading, spacing: 12) {
+                     Text("Dark")
+                         .font(.system(size: 9, weight: .medium))
+                         .kerning(0.8)
+                         .foregroundStyle(secondaryTextColor)
+                         .padding(.leading, 4)
+                     
+                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                         ForEach(AppTheme.themes.filter { !lightThemeIds.contains($0.id) }) { t in
+                             themeOption(t)
+                         }
+                     }
+                 }
+             }
+             .padding(16)
+             .foregroundStyle(textColor)
+         }
+         .frame(width: 280)
+         .colorScheme(lightThemeIds.contains(previewTheme.id) ? .light : .dark)
+     }
+     
+     private func themeOption(_ t: AppTheme) -> some View {
+         let isSelected = appThemeId == t.id
+         let isHovered = hoveredThemeId == t.id
+         
+         return Button {
+             appThemeId = t.id
+             showThemePicker = false
+         } label: {
+             VStack(spacing: 8) {
+                 HStack(spacing: 8) {
+                     VStack(spacing: 3) {
+                         RoundedRectangle(cornerRadius: 1.5)
+                             .fill(t.mainBg)
+                             .frame(height: 8)
+                             .overlay(RoundedRectangle(cornerRadius: 1.5).stroke(borderColor.opacity(0.3), lineWidth: 0.5))
+                         
+                         HStack(spacing: 2) {
+                             RoundedRectangle(cornerRadius: 1)
+                                 .fill(t.accent)
+                                 .frame(height: 4)
+                             RoundedRectangle(cornerRadius: 1)
+                                 .fill(t.accent.opacity(0.4))
+                                 .frame(height: 4)
+                             RoundedRectangle(cornerRadius: 1)
+                                 .fill(t.accent.opacity(0.2))
+                                 .frame(height: 4)
+                         }
+                     }
+                     
+                      VStack(alignment: .leading, spacing: 0) {
+                          Text(t.name)
+                              .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                              .foregroundStyle(t.text)
+                              .lineLimit(1)
+                      }
+                     
+                     Spacer()
+                     
+                     if isSelected {
+                         Image(systemName: "checkmark.circle.fill")
+                             .font(.system(size: 12, weight: .semibold))
+                             .foregroundStyle(t.accent)
+                     }
+                 }
+                 .padding(10)
+                 .background(isHovered ? t.secondaryBg : t.mainBg)
+                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                 .overlay(
+                     RoundedRectangle(cornerRadius: 10)
+                         .stroke(
+                             isSelected ? t.accent :
+                             (isHovered ? borderColor.opacity(0.5) : borderColor.opacity(0.2)),
+                             lineWidth: isSelected ? 1.5 : 1
+                         )
+                 )
+              }
+          }
+          .buttonStyle(.plain)
+          .onHover { hovering in
+              withAnimation(.easeOut(duration: 0.15)) {
+                  hoveredThemeId = hovering ? t.id : nil
+              }
+          }
+      }
     
     private var leftColumn: some View {
         VStack(alignment: .leading, spacing: 48) {
@@ -203,16 +304,65 @@ struct DashboardView: View {
                     Chart {
                         ForEach(chartData) { point in
                             if selectedTab == 0 {
-                                AreaMark(x: .value("T", point.label), y: .value("C", point.count)).interpolationMethod(.monotone).foregroundStyle(accent.opacity(0.1).gradient)
-                                LineMark(x: .value("T", point.label), y: .value("C", point.count)).interpolationMethod(.monotone).foregroundStyle(accent)
-                            } else { BarMark(x: .value("L", point.label), y: .value("C", point.count)).foregroundStyle(accent.gradient).cornerRadius(2) }
+                                AreaMark(x: .value("T", point.label), y: .value("C", point.count))
+                                    .interpolationMethod(.monotone)
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [accent.opacity(0.35), accent.opacity(0.02)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                LineMark(x: .value("T", point.label), y: .value("C", point.count))
+                                    .interpolationMethod(.monotone)
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [accent, accent.opacity(0.8)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                                PointMark(x: .value("T", point.label), y: .value("C", point.count))
+                                    .interpolationMethod(.monotone)
+                                    .foregroundStyle(accent)
+                                    .symbolSize(selectedPointValue != nil && rawSelectedDate == point.label ? 100 : 40)
+                            } else {
+                                BarMark(x: .value("L", point.label), y: .value("C", point.count))
+                                    .foregroundStyle(accent.gradient)
+                                    .cornerRadius(2)
+                            }
                         }
-                        if let rawSelectedDate { RuleMark(x: .value("Selected", rawSelectedDate)).foregroundStyle(secondaryTextColor.opacity(0.3)) }
+                        if let rawSelectedDate { 
+                            RuleMark(x: .value("Selected", rawSelectedDate))
+                                .foregroundStyle(secondaryTextColor.opacity(0.25))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                        }
                     }
-                    .frame(height: 200).chartYAxis { AxisMarks(position: .leading) { AxisGridLine().foregroundStyle(borderColor); AxisValueLabel().font(.system(size: 9)).foregroundStyle(secondaryTextColor) } }
-                    .chartXAxis { if selectedTab == 0 { AxisMarks(values: ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]) { _ in AxisGridLine().foregroundStyle(borderColor); AxisValueLabel().font(.system(size: 9)).foregroundStyle(secondaryTextColor) } }
-                        else { AxisMarks { _ in AxisGridLine().foregroundStyle(borderColor); AxisValueLabel().font(.system(size: 9)).foregroundStyle(secondaryTextColor) } } }
+                    .frame(height: 200)
+                    .chartYAxis { AxisMarks(position: .leading) { 
+                        AxisGridLine()
+                            .foregroundStyle(borderColor.opacity(0.25))
+                        AxisValueLabel()
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(secondaryTextColor) 
+                    } }
+                    .chartXAxis { if selectedTab == 0 { AxisMarks(values: ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"]) { _ in 
+                        AxisGridLine()
+                            .foregroundStyle(borderColor.opacity(0.25))
+                        AxisValueLabel()
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(secondaryTextColor) 
+                    } }
+                        else { AxisMarks { _ in 
+                        AxisGridLine()
+                            .foregroundStyle(borderColor.opacity(0.25))
+                        AxisValueLabel()
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(secondaryTextColor) 
+                    } } }
                     .chartXSelection(value: $rawSelectedDate)
+                    .animation(.easeOut(duration: 0.35), value: selectedTab)
                 }
             }
             
@@ -262,6 +412,55 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("WAKATIME").font(.system(size: 10, weight: .medium)).kerning(1.5).foregroundStyle(secondaryTextColor)
+                Button {
+                    showWakaInfo.toggle()
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 10))
+                        .foregroundStyle(accent)
+                }
+                .buttonStyle(.plain)
+                 .popover(isPresented: $showWakaInfo, arrowEdge: .top) {
+                     VStack(alignment: .leading, spacing: 12) {
+                         VStack(alignment: .leading, spacing: 8) {
+                             Text("What is WakaTime?").font(.system(size: 11, weight: .bold)).foregroundStyle(textColor)
+                             Text("Automatically tracks your coding activity to measure productivity and focus.").font(.system(size: 10)).foregroundStyle(secondaryTextColor)
+                         }
+                         
+                         Divider().frame(height: 1).background(borderColor.opacity(0.5))
+                         
+                         VStack(alignment: .leading, spacing: 8) {
+                             HStack(alignment: .top, spacing: 8) {
+                                 Text("●").font(.system(size: 8)).foregroundStyle(accent)
+                                 VStack(alignment: .leading, spacing: 2) {
+                                     Text("ACTIVE").font(.system(size: 9, weight: .bold)).foregroundStyle(textColor)
+                                     Text("Total time spent coding").font(.system(size: 9)).foregroundStyle(secondaryTextColor)
+                                 }
+                             }
+                             HStack(alignment: .top, spacing: 8) {
+                                 Text("●").font(.system(size: 8)).foregroundStyle(accent)
+                                 VStack(alignment: .leading, spacing: 2) {
+                                     Text("DENSITY").font(.system(size: 9, weight: .bold)).foregroundStyle(textColor)
+                                     Text("Keystrokes per minute (higher = more focused)").font(.system(size: 9)).foregroundStyle(secondaryTextColor)
+                                 }
+                             }
+                         }
+                         
+                         Divider().frame(height: 1).background(borderColor.opacity(0.5))
+                         
+                         VStack(alignment: .leading, spacing: 6) {
+                             Text("Get Started:").font(.system(size: 9, weight: .bold)).foregroundStyle(textColor)
+                             Link("1. Get your API key from wakatime.com/api", destination: URL(string: "https://wakatime.com/api")!)
+                                 .font(.system(size: 9))
+                                 .foregroundStyle(accent)
+                             Text("2. Paste it in the API key field below").font(.system(size: 9)).foregroundStyle(secondaryTextColor)
+                         }
+                     }
+                     .padding(12)
+                     .frame(maxWidth: 280)
+                     .background(bgSecondary)
+                     .cornerRadius(10)
+                 }
                 Spacer()
                 HStack(spacing: 12) {
                     if !storage.wakaTimeApiKey.isEmpty { Link(destination: URL(string: "https://wakatime.com/dashboard")!) { Image(systemName: "arrow.up.right.square").font(.system(size: 10)).foregroundStyle(accent) } }
