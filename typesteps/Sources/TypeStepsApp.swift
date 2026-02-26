@@ -1,18 +1,35 @@
 import SwiftUI
 import UserNotifications
+import ServiceManagement
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // ALWAYS check permissions to trigger the macOS prompt if it's not authorized
-        KeystrokeListener.shared.checkPermissions()
-        KeystrokeListener.shared.startListening()
+        NSApp.setActivationPolicy(.regular)
         
-        // This keeps the app running as a background utility (no Dock icon)
-        NSApp.setActivationPolicy(.accessory)
-        
-        // Request notification permissions
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.checkAndStartTracking()
+        }
     }
+    
+    private func checkAndStartTracking() {
+        let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "has_completed_onboarding")
+        
+        if hasCompletedOnboarding {
+            // Only start tracking if onboarding was already done and permission granted
+            if KeystrokeListener.shared.checkPermissionsSilently() {
+                KeystrokeListener.shared.startListening()
+            }
+        }
+        // If onboarding not done, the app will show it automatically via @State init
+    }
+}
+
+extension Notification.Name {
+    static let showOnboarding = Notification.Name("showOnboarding")
+    static let onboardingCompleted = Notification.Name("onboardingCompleted")
+    static let accessibilityGranted = Notification.Name("accessibilityGranted")
 }
 
 @main
@@ -20,9 +37,22 @@ struct TypeStepsApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var storage = StorageManager.shared
     @StateObject private var listener = KeystrokeListener.shared
+    @State private var showOnboarding = false
+    @State private var loginItemEnabled = false
+    @State private var hasInitialized = false
     
     @AppStorage("app_theme") private var appTheme = 0
     @Environment(\.openWindow) var openWindow
+    
+    init() {
+        // Check if we need to show onboarding
+        let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "has_completed_onboarding")
+        print("[DEBUG] Onboarding completed: \(hasCompletedOnboarding)")
+        if !hasCompletedOnboarding {
+            print("[DEBUG] Showing onboarding...")
+            _showOnboarding = State(initialValue: true)
+        }
+    }
     
     var body: some Scene {
         MenuBarExtra {
@@ -45,6 +75,13 @@ struct TypeStepsApp: App {
             
             Divider()
             
+            Toggle("Open at Login", isOn: $loginItemEnabled)
+                .onChange(of: loginItemEnabled) { _, newValue in
+                    updateLoginItem(enabled: newValue)
+                }
+            
+            Divider()
+            
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
@@ -55,10 +92,52 @@ struct TypeStepsApp: App {
                 Text("\(storage.getCount())")
             }
         }
+        .onChange(of: showOnboarding) { _, newValue in
+            if newValue {
+                // Open dashboard window with onboarding overlay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    openWindow(id: "dashboard")
+                }
+            } else {
+                // Sync login state when onboarding closes
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    syncLoginItemState()
+                }
+            }
+        }
         
         Window("TypeSteps", id: "dashboard") {
-            DashboardView()
-                .preferredColorScheme(appTheme == 0 ? nil : (appTheme == 1 ? .light : .dark))
+            ZStack {
+                DashboardView()
+                    .preferredColorScheme(appTheme == 0 ? nil : (appTheme == 1 ? .light : .dark))
+                
+                // Show onboarding overlay on top of dashboard
+                if showOnboarding {
+                    Color.black
+                        .opacity(0.4)
+                        .ignoresSafeArea()
+                    
+                    VStack {
+                        WelcomeView(showOnboarding: $showOnboarding)
+                            .frame(width: 500, height: 600)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .onboardingCompleted)) { _ in
+                if KeystrokeListener.shared.checkPermissionsSilently() {
+                    KeystrokeListener.shared.startListening()
+                }
+            }
+            .onAppear {
+                // Open window immediately if onboarding needs to be shown
+                if !hasInitialized && showOnboarding {
+                    hasInitialized = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                }
+            }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1200, height: 850)
@@ -69,6 +148,24 @@ struct TypeStepsApp: App {
                     showCustomAbout()
                 }
             }
+        }
+    }
+    
+    private func syncLoginItemState() {
+        loginItemEnabled = SMAppService.mainApp.status == .enabled
+    }
+    
+    private func updateLoginItem(enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            print("Failed to toggle login item: \(error)")
+            // Revert the toggle if it fails
+            loginItemEnabled = !enabled
         }
     }
     
