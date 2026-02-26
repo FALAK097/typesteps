@@ -34,6 +34,7 @@ struct WelcomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.mainBg)
         .foregroundColor(theme.text)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .onAppear {
             print("[DEBUG] WelcomeView appeared!")
             startPermissionCheck()
@@ -41,10 +42,18 @@ struct WelcomeView: View {
     }
     
     private var headerView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "keyboard")
-                .font(.system(size: 52, weight: .semibold))
-                .foregroundColor(theme.accent)
+        VStack(spacing: 16) {
+            if let appIcon = NSImage(named: "AppIcon") {
+                Image(nsImage: appIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    // The macOS app icon usually has transparent borders or its own shape
+            } else {
+                Image(systemName: "keyboard")
+                    .font(.system(size: 52, weight: .semibold))
+                    .foregroundColor(theme.accent)
+            }
             
             Text("Welcome to TypeSteps")
                 .font(.title.bold())
@@ -54,7 +63,7 @@ struct WelcomeView: View {
                 .font(.subheadline)
                 .foregroundColor(theme.secondaryText)
         }
-        .padding(.top, 48)
+        .padding(.top, 40)
     }
     
     @ViewBuilder
@@ -81,48 +90,37 @@ struct WelcomeView: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
             
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(alignment: .center, spacing: 16) {
                     Image(systemName: "eye")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 20, weight: .regular))
                         .foregroundColor(theme.accent)
-                        .frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Monitors keyboard input globally")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(theme.text)
-                    }
+                        .frame(width: 28)
+                    Text("Monitors keyboard input globally")
+                        .font(.body)
+                        .foregroundColor(theme.text)
                 }
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .center, spacing: 16) {
                     Image(systemName: "lock.shield")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 20, weight: .regular))
                         .foregroundColor(theme.accent)
-                        .frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("All data stays on your device - nothing is sent anywhere")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(theme.text)
-                    }
+                        .frame(width: 28)
+                    Text("All data stays on your device securely")
+                        .font(.body)
+                        .foregroundColor(theme.text)
                 }
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .center, spacing: 16) {
                     Image(systemName: "app.badge.checkmark")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 20, weight: .regular))
                         .foregroundColor(theme.accent)
-                        .frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("You can revoke permission anytime in System Settings")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(theme.text)
-                    }
+                        .frame(width: 28)
+                    Text("Revoke permission anytime in Settings")
+                        .font(.body)
+                        .foregroundColor(theme.text)
                 }
             }
-            .padding(16)
-            .background(theme.secondaryBg)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(theme.border, lineWidth: 0.5)
-            )
+            .padding(.vertical, 10)
+            .padding(.horizontal, 20)
             
             if isCheckingPermission {
                 HStack(spacing: 10) {
@@ -158,48 +156,37 @@ struct WelcomeView: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
             
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(alignment: .center, spacing: 16) {
                     Image(systemName: "clock")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 20, weight: .regular))
                         .foregroundColor(theme.accent)
-                        .frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Starts automatically in the background")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(theme.text)
-                    }
+                        .frame(width: 28)
+                    Text("Starts automatically in the background")
+                        .font(.body)
+                        .foregroundColor(theme.text)
                 }
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .center, spacing: 16) {
                     Image(systemName: "battery.100")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 20, weight: .regular))
                         .foregroundColor(theme.accent)
-                        .frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Lightweight - won't affect Mac performance")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(theme.text)
-                    }
+                        .frame(width: 28)
+                    Text("Lightweight - won't affect Mac performance")
+                        .font(.body)
+                        .foregroundColor(theme.text)
                 }
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .center, spacing: 16) {
                     Image(systemName: "gearshape.2")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 20, weight: .regular))
                         .foregroundColor(theme.accent)
-                        .frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("You can change this anytime in Settings")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(theme.text)
-                    }
+                        .frame(width: 28)
+                    Text("You can change this anytime in Settings")
+                        .font(.body)
+                        .foregroundColor(theme.text)
                 }
             }
-            .padding(16)
-            .background(theme.secondaryBg)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(theme.border, lineWidth: 0.5)
-            )
+            .padding(.vertical, 10)
+            .padding(.horizontal, 20)
             
             if loginItemEnabled {
                 HStack(spacing: 10) {

@@ -21,8 +21,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if KeystrokeListener.shared.checkPermissionsSilently() {
                 KeystrokeListener.shared.startListening()
             }
+        } else {
+            // If onboarding not done, trigger the onboarding flow
+            NotificationCenter.default.post(name: .showOnboarding, object: nil)
         }
-        // If onboarding not done, the app will show it automatically via @State init
     }
 }
 
@@ -45,13 +47,8 @@ struct TypeStepsApp: App {
     @Environment(\.openWindow) var openWindow
     
     init() {
-        // Check if we need to show onboarding
-        let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "has_completed_onboarding")
-        print("[DEBUG] Onboarding completed: \(hasCompletedOnboarding)")
-        if !hasCompletedOnboarding {
-            print("[DEBUG] Showing onboarding...")
-            _showOnboarding = State(initialValue: true)
-        }
+        // We will handle onboarding checking dynamically via AppDelegate
+        // to prevent UI layout initialization issues before the window is fully ready.
     }
     
     var body: some Scene {
@@ -91,6 +88,13 @@ struct TypeStepsApp: App {
                 Image(systemName: listener.isPaused ? "keyboard.badge.ellipsis" : "keyboard")
                 Text("\(storage.getCount())")
             }
+            .onReceive(NotificationCenter.default.publisher(for: .showOnboarding)) { _ in
+                showOnboarding = true
+                openWindow(id: "dashboard")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
         }
         .onChange(of: showOnboarding) { _, newValue in
             if newValue {
@@ -119,7 +123,9 @@ struct TypeStepsApp: App {
                     
                     VStack {
                         WelcomeView(showOnboarding: $showOnboarding)
-                            .frame(width: 500, height: 600)
+                            .frame(width: 440, height: 500)
+                            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .shadow(color: Color.black.opacity(0.15), radius: 24, y: 12)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
