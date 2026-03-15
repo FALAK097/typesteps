@@ -21,6 +21,8 @@ View docs at https://falak097-typesteps.mintlify.app/introduction
 
 ## Installation
 
+Download Release from [here](https://github.com/FALAK097/typesteps/releases/)
+
 ### Option 1: Homebrew (Recommended)
 
 1. Add the custom tap to Homebrew:
